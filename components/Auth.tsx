@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 interface Props {
@@ -87,7 +86,7 @@ const Auth: React.FC<Props> = ({ onLogin }) => {
 
       <div className="bg-white w-full max-w-md rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.12)] p-12 relative z-10 border border-slate-100 animate-in fade-in zoom-in duration-500">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none mb-4">Mobil_</h1>
+          <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none mb-4">POS</h1>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.5em]">Inventory Sync v1.1</p>
         </div>
 

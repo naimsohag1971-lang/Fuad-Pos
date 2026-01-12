@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   AppData, 
@@ -34,7 +33,7 @@ const App: React.FC = () => {
       dashboard: 'Dashboard', invoice: 'Sale Invoice', stock: 'Inventory', models: 'Catalog', history: 'Bills History', reports: 'Analytics', settings: 'Settings', developedBy: 'Fuad Naim Sohag', totalSales: "Today's Sales", monthlySales: "Monthly Sales", stockQty: "Stock Quantity", stockValue: "Stock Value", todayInvoices: "Today Invoices", profit: "Monthly Profit", welcome: "Welcome back", purchase: 'Purchase Entry'
     },
     bn: {
-      dashboard: 'ড্যাশবোর্ড', invoice: 'সেল ইনভয়েস', stock: 'ইনভেন্টরি', models: 'ক্যাটালগ', history: 'বিল ইতিহাস', reports: 'অ্যানালিটিক্স', সেটিংস: 'সেটিংস', developedBy: 'ফুয়াদ নাঈম সোহাগ', totalSales: "আজকের বিক্রি", monthlySales: "মাসিক বিক্রি", stockQty: "স্টক পরিমাণ", stockValue: "স্টকের মূল্য", todayInvoices: "আজকের ইনভয়েস", profit: "মাসিক লাভ", welcome: "স্বাগতম", purchase: 'পারচেজ এন্ট্রি'
+      dashboard: ' ড্যাশবোর্ড', invoice: 'সেল ইনভয়েস', stock: 'ইনভেন্টরি', models: 'ক্যাটালগ', history: 'বিল ইতিহাস', reports: 'অ্যানালিটিক্স', সেটিংস: 'সেটিংস', developedBy: 'ফুয়াদ নাঈম সোহাগ', totalSales: "আজকের বিক্রি", monthlySales: "মাসিক বিক্রি", stockQty: "স্টক পরিমাণ", stockValue: "স্টকের মূল্য", todayInvoices: "আজকের ইনভয়েস", profit: "মাসিক লাভ", welcome: "স্বাগতম", purchase: 'পারচেজ এন্ট্রি'
     }
   };
 
@@ -195,7 +194,7 @@ const App: React.FC = () => {
       <aside className="w-full md:w-80 bg-white border-r border-slate-100 flex flex-col no-print relative">
         <div className="p-12 pb-8">
           <div className="flex flex-col mb-16">
-            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">MobilTrack</h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">POS</h1>
             <div className="flex items-center mt-2 space-x-1">
                <div className="w-1 h-1 bg-slate-900 rounded-full opacity-20"></div>
                <div className="w-1 h-1 bg-slate-900 rounded-full opacity-40"></div>

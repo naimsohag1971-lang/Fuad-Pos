@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { AppData, ShopAccount } from '../types';
 
@@ -11,7 +10,7 @@ interface Props {
   onResetAll: () => void;
 }
 
-const BACKUP_FILE_NAME = 'mobil_backup.json';
+const BACKUP_FILE_NAME = 'pos_backup.json';
 
 const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +66,7 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Mobil_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `POS_Backup_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };

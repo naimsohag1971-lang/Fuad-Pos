@@ -1,5 +1,5 @@
 {
-  "name": "Mobile Shop Invoice V1.0",
+  "name": "POS V1.0",
   "description": "A professional Mobile POS system for phone shops, featuring IMEI-based stock management, smart multi-product invoicing, profit tracking, and cloud-ready backups.",
   "requestFramePermissions": [
     "camera"
