@@ -43,12 +43,47 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
       return;
     }
 
-    const imeis = imeisInput.split(/[\n,]/).map(i => i.trim()).filter(i => i.length > 0);
+    // 1. Extract and clean IMEIs from input
+    const inputImeis = imeisInput
+      .split(/[\n,]/)
+      .map(i => i.trim())
+      .filter(i => i.length > 0);
+
+    if (inputImeis.length === 0) return;
+
+    // 2. Collect all existing IMEIs (from database + current staging queue)
+    const existingInDb = new Set(data.stocks.map(s => s.imei));
+    const existingInQueue = new Set(items.flatMap(item => item.imeis));
+
+    const duplicates: string[] = [];
+    const uniqueToThisEntry: string[] = [];
+    const selfDuplicatesInEntry = new Set<string>();
+
+    inputImeis.forEach(imei => {
+      if (existingInDb.has(imei) || existingInQueue.has(imei) || selfDuplicatesInEntry.has(imei)) {
+        duplicates.push(imei);
+      } else {
+        uniqueToThisEntry.push(imei);
+        selfDuplicatesInEntry.add(imei);
+      }
+    });
+
+    // 3. Warning if duplicates found
+    if (duplicates.length > 0) {
+      alert(`DUPLICATE IMEI WARNING!\n\nThe following IMEIs are already in the system or current list and will be skipped:\n\n${duplicates.join(', ')}`);
+    }
+
+    // 4. If no new valid IMEIs, stop
+    if (uniqueToThisEntry.length === 0) {
+      setImeisInput('');
+      return;
+    }
+
     const newItem: PurchaseItem = {
       modelId: selectedModel.id,
       brand: selectedModel.brand,
       modelName: selectedModel.modelName,
-      imeis,
+      imeis: uniqueToThisEntry,
       costPrice: costPrice || selectedModel.purchasePrice,
       sellingPrice: sellingPrice || selectedModel.sellingPrice
     };
