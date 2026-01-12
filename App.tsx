@@ -34,14 +34,13 @@ const App: React.FC = () => {
       dashboard: 'Dashboard', invoice: 'Sale Invoice', stock: 'Inventory', models: 'Catalog', history: 'Bills History', reports: 'Analytics', settings: 'Settings', developedBy: 'Fuad Naim Sohag', totalSales: "Today's Sales", monthlySales: "Monthly Sales", stockQty: "Stock Quantity", stockValue: "Stock Value", todayInvoices: "Today Invoices", profit: "Monthly Profit", welcome: "Welcome back", purchase: 'Purchase Entry'
     },
     bn: {
-      dashboard: 'ড্যাশবোর্ড', invoice: 'সেল ইনভয়েস', stock: 'ইনভেন্টরি', models: 'ক্যাটালগ', history: 'বিল ইতিহাস', reports: 'অ্যানালিটিক্স', settings: 'সেটিংস', developedBy: 'ফুয়াদ নাঈম সোহাগ', totalSales: "আজকের বিক্রি", monthlySales: "মাসিক বিক্রি", stockQty: "স্টক পরিমাণ", stockValue: "স্টকের মূল্য", todayInvoices: "আজকের ইনভয়েস", profit: "মাসিক লাভ", welcome: "স্বাগতম", purchase: 'পারচেজ এন্ট্রি'
+      dashboard: 'ড্যাশবোর্ড', invoice: 'সেল ইনভয়েস', stock: 'ইনভেন্টরি', models: 'ক্যাটালগ', history: 'বিল ইতিহাস', reports: 'অ্যানালিটিক্স', সেটিংস: 'সেটিংস', developedBy: 'ফুয়াদ নাঈম সোহাগ', totalSales: "আজকের বিক্রি", monthlySales: "মাসিক বিক্রি", stockQty: "স্টক পরিমাণ", stockValue: "স্টকের মূল্য", todayInvoices: "আজকের ইনভয়েস", profit: "মাসিক লাভ", welcome: "স্বাগতম", purchase: 'পারচেজ এন্ট্রি'
     }
   };
 
   // Firebase Auth Listener for Persistent Sessions
   useEffect(() => {
     const initAuthListener = async () => {
-      // We wait for window.auth to be initialized by index.html script
       const waitForAuth = () => {
         return new Promise((resolve) => {
           if ((window as any).auth) return resolve((window as any).auth);
@@ -59,7 +58,6 @@ const App: React.FC = () => {
 
       onAuthStateChanged(auth, (user: any) => {
         if (user) {
-          // If user exists, we set the shop name from displayName
           setActiveShopName(user.displayName || user.email.split('@')[0]);
         } else {
           setActiveShopName(null);

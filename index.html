@@ -1,21 +1,28 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>POS Manager | Pos For Bill</title>
+  <title>Mobil_ | Professional POS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
   
-  <!-- Libraries with proper ordering and crossorigin -->
+  <!-- Import Map to resolve bare modules -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@19.0.0",
+      "react-dom": "https://esm.sh/react-dom@19.0.0",
+      "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+      "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime"
+    }
+  }
+  </script>
+
+  <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
-  
-  <!-- Google API Scripts -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://apis.google.com/js/api.js" async defer></script>
   
   <style>
     body { 
@@ -33,37 +40,33 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
-  }
-}
-</script>
 </head>
 <body class="text-slate-900">
+  <!-- The React application will mount here -->
   <div id="root"></div>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  
+  <!-- Firebase initialization - Global availability for the app -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyA9PKDQ9s2vj8KECEZXoEQVew3K-1WJe7s",
-  authDomain: "mobile-shop-invoice.firebaseapp.com",
-  projectId: "mobile-shop-invoice",
-  storageBucket: "mobile-shop-invoice.firebasestorage.app",
-  messagingSenderId: "561940295346",
-  appId: "1:561940295346:web:870b4c1f1f5eb0bd9d23ab",
-  measurementId: "G-B9JSPFWDV1"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9PKDQ9s2vj8KECEZXoEQVew3K-1WJe7s",
+      authDomain: "mobile-shop-invoice.firebaseapp.com",
+      projectId: "mobile-shop-invoice",
+      storageBucket: "mobile-shop-invoice.firebasestorage.app",
+      messagingSenderId: "561940295346",
+      appId: "1:561940295346:web:870b4c1f1f5eb0bd9d23ab",
+      measurementId: "G-B9JSPFWDV1"
+    };
 
-const app = initializeApp(firebaseConfig);
-window.db = getFirestore(app);
-window.auth = getAuth(app);
-</script>
+    const app = initializeApp(firebaseConfig);
+    window.db = getFirestore(app);
+    window.auth = getAuth(app);
+  </script>
 
+  <!-- Vite Entry Point -->
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
