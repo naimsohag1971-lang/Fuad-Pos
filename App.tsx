@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'models' | 'stock' | 'invoice' | 'purchase' | 'reports' | 'settings'>('dashboard');
   const [inventorySubTab, setInventorySubTab] = useState<'available' | 'purchase_history' | 'sales_history'>('available');
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [lastCreatedInvoiceId, setLastCreatedInvoiceId] = useState<string | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
@@ -37,7 +38,7 @@ const App: React.FC = () => {
     }
   };
 
-  // Firebase Auth Listener for Persistent Sessions
+  // Firebase Auth Listener
   useEffect(() => {
     const initAuthListener = async () => {
       const waitForAuth = () => {
@@ -67,15 +68,39 @@ const App: React.FC = () => {
     initAuthListener();
   }, []);
 
+  // Load Data from Firestore & LocalStorage
   useEffect(() => {
-    if (activeShopName) {
-      const saved = localStorage.getItem(getStorageKey(activeShopName));
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!parsed.purchases) parsed.purchases = [];
-        setData(parsed);
-      } else {
-        setData({
+    const fetchCloudData = async () => {
+      if (!activeShopName) {
+        setData(null);
+        setIsLoaded(false);
+        return;
+      }
+
+      setIsSyncing(true);
+      const storageKey = getStorageKey(activeShopName);
+      const localData = localStorage.getItem(storageKey);
+      let initialData: AppData | null = localData ? JSON.parse(localData) : null;
+
+      try {
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const db = (window as any).db;
+        if (db) {
+          const docRef = doc(db, "shops", activeShopName.toLowerCase());
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            const cloudData = docSnap.data() as AppData;
+            // Always prefer cloud data for cross-device consistency
+            initialData = cloudData;
+          }
+        }
+      } catch (err) {
+        console.error("Sync Error: Falling back to local storage.", err);
+      }
+
+      if (!initialData) {
+        initialData = {
           shop: {
             name: activeShopName,
             address: '',
@@ -88,18 +113,39 @@ const App: React.FC = () => {
           stocks: [],
           invoices: [],
           purchases: []
-        });
+        };
       }
+      
+      setData(initialData);
       setIsLoaded(true);
-    } else {
-      setData(null);
-      setIsLoaded(false);
-    }
+      setIsSyncing(false);
+    };
+
+    fetchCloudData();
   }, [activeShopName]);
 
+  // Save Data to Firestore & LocalStorage
   useEffect(() => {
     if (isLoaded && data && activeShopName) {
-      localStorage.setItem(getStorageKey(activeShopName), JSON.stringify(data));
+      const storageKey = getStorageKey(activeShopName);
+      localStorage.setItem(storageKey, JSON.stringify(data));
+
+      const saveToCloud = async () => {
+        try {
+          const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+          const db = (window as any).db;
+          if (db) {
+            const docRef = doc(db, "shops", activeShopName.toLowerCase());
+            await setDoc(docRef, data);
+          }
+        } catch (err) {
+          console.error("Cloud Save Failed:", err);
+        }
+      };
+
+      // Debounced cloud save to prevent hitting firestore limits
+      const timeout = setTimeout(saveToCloud, 2000);
+      return () => clearTimeout(timeout);
     }
   }, [data, isLoaded, activeShopName]);
 
@@ -116,7 +162,14 @@ const App: React.FC = () => {
     return <Auth onLogin={(name) => setActiveShopName(name)} />;
   }
 
-  if (!data) return null;
+  if (!data) return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="flex flex-col items-center">
+        <div className="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400">Syncing Workspace...</p>
+      </div>
+    </div>
+  );
 
   const t = translations[data.shop.language || 'en'];
 
@@ -203,6 +256,12 @@ const App: React.FC = () => {
                <div className="w-1 h-1 bg-slate-900 rounded-full"></div>
                <span className="text-[8px] font-black uppercase text-slate-400 tracking-[0.4em] ml-2">Systems v1.0</span>
             </div>
+            {isSyncing && (
+              <div className="mt-4 flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping"></div>
+                <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Live Syncing</span>
+              </div>
+            )}
           </div>
           
           <nav className="space-y-3">
