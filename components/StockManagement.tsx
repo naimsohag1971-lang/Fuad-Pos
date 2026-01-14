@@ -84,6 +84,26 @@ const StockManagement: React.FC<Props> = ({
       const FONT = "helvetica";
       const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || ""), Number(x), Number(y), o);
 
+      // --- LOGO HANDLING (TOP LEFT, 60% OPACITY) ---
+      if (data.shop.logoUrl && data.shop.logoUrl.startsWith('data:image')) {
+        try {
+          const logoSize = 35;
+          const mimeMatch = data.shop.logoUrl.match(/^data:(image\/[a-zA-Z+.-]+);base64,/);
+          const mimeType = mimeMatch ? mimeMatch[1] : '';
+          const formatMatch = mimeType.match(/\/([a-zA-Z+]+)$/);
+          let format = formatMatch ? formatMatch[1].toUpperCase() : 'PNG';
+          if (format === 'JPG') format = 'JPEG';
+          const isSupported = ['PNG', 'JPEG', 'WEBP'].includes(format);
+          if (isSupported) {
+            const gState = new (doc as any).GState({ opacity: 0.6 });
+            doc.saveGraphicsState();
+            doc.setGState(gState);
+            doc.addImage(data.shop.logoUrl, format, MARGIN, 5, logoSize, logoSize);
+            doc.restoreGraphicsState();
+          }
+        } catch (e) { console.error("Logo Render Error:", e); }
+      }
+
       // --- HEADER ---
       doc.setTextColor(0); 
       doc.setFont(FONT, "bold").setFontSize(22);
@@ -91,7 +111,9 @@ const StockManagement: React.FC<Props> = ({
       
       doc.setFontSize(9).setFont(FONT, "normal");
       safeText(String(data.shop.address || ''), PAGE_WIDTH / 2, 26, { align: 'center' });
-      doc.setFont(FONT, "bold"); safeText(`Phone: ${String(data.shop.phone || '')}`, PAGE_WIDTH / 2, 31, { align: 'center' });
+      doc.setFont(FONT, "bold"); 
+      // Include email next to phone number
+      safeText(`Phone: ${String(data.shop.phone || '')}${data.shop.email ? ` | Email: ${data.shop.email}` : ''}`, PAGE_WIDTH / 2, 31, { align: 'center' });
 
       doc.setFontSize(14); 
       doc.rect(PAGE_WIDTH / 2 - 35, 38, 70, 9); 
@@ -339,7 +361,7 @@ const StockManagement: React.FC<Props> = ({
         />
       )}
 
-      {/* Modals remain exactly the same as requested */}
+      {/* Modals */}
       {editingStock && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] flex items-center justify-center p-4">
            <div className="bg-white rounded-[3rem] max-w-md w-full p-10 shadow-2xl border border-slate-100 animate-in zoom-in duration-300">

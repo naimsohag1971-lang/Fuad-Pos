@@ -41,6 +41,7 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
       name: (formData.get('shopName') as string).trim(),
       address: (formData.get('address') as string).trim(),
       phone: (formData.get('phone') as string).trim(),
+      email: (formData.get('email') as string).trim() || undefined,
       preparedBy: (formData.get('preparedBy') as string).trim(),
       inactivityTimeout: Number(formData.get('inactivityTimeout')) || 30,
       logoUrl: logoPreview || undefined
@@ -177,6 +178,10 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
                    <input name="phone" defaultValue={data.shop.phone} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all" />
                  </div>
                  <div className="space-y-2">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Email Address</label>
+                   <input name="email" defaultValue={data.shop.email || ''} type="email" placeholder="shop@example.com" className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all" />
+                 </div>
+                 <div className="space-y-2">
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Authorized Operator</label>
                    <input name="preparedBy" defaultValue={data.shop.preparedBy} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all" />
                  </div>
@@ -186,7 +191,6 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
                  </div>
               </div>
               
-              {/* Login Timeout Section Moved To Separate Card below but input must remain in form for submit */}
               <input type="hidden" name="inactivityTimeout" value={data.shop.inactivityTimeout || 30} />
               
               <button type="submit" className="w-full bg-slate-900 text-white font-black py-5 rounded-[2rem] uppercase text-[11px] tracking-[0.3em] shadow-xl hover:bg-black active:scale-[0.98] transition-all">Save Business Profile</button>
