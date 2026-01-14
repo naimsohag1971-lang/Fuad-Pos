@@ -12,11 +12,6 @@ export enum StockStatus {
   SOLD = 'Sold'
 }
 
-export interface User {
-  shopName: string;
-  password: string;
-}
-
 export interface ShopAccount {
   name: string;
   address: string;
@@ -24,8 +19,8 @@ export interface ShopAccount {
   email?: string;
   logoUrl?: string;
   isRegistered: boolean;
-  language: 'en' | 'bn';
   preparedBy?: string;
+  ownerUsername?: string; // New field to identify the user in Firebase
 }
 
 export interface MobileModel {
@@ -36,13 +31,20 @@ export interface MobileModel {
   sellingPrice: number;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+}
+
 export interface IMEIStock {
   imei: string;
   modelId: string;
   status: StockStatus;
   dateAdded: string;
   invoiceId?: string;
-  purchaseId?: string; // Link to purchase record
+  purchaseId?: string;
   purchasePrice: number;
   sellingPrice: number;
 }
@@ -58,7 +60,7 @@ export interface PurchaseItem {
   modelId: string;
   brand: string;
   modelName: string;
-  imeis: string[]; // Support multi-IMEI for same model
+  imeis: string[];
   costPrice: number;
   sellingPrice: number;
 }
@@ -88,6 +90,7 @@ export interface Invoice {
   payments: PaymentDetails[];
   paidAmount: number;
   dueAmount: number;
+  destination?: string;
 }
 
 export interface Purchase {
@@ -112,5 +115,6 @@ export interface AppData {
   models: MobileModel[];
   stocks: IMEIStock[];
   invoices: Invoice[];
-  purchases: Purchase[]; // Added for purchase tracking
+  purchases: Purchase[];
+  suppliers: Supplier[];
 }

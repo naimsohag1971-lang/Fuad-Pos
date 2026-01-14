@@ -84,30 +84,88 @@ const StockManagement: React.FC<Props> = ({
       const FONT = "helvetica";
       const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || ""), Number(x), Number(y), o);
 
-      doc.setTextColor(0, 0, 0); doc.setFont(FONT, "bold"); doc.setFontSize(24);
-      safeText(String(data.shop.name || 'SHOP NAME').toUpperCase(), PAGE_WIDTH / 2, 18, { align: 'center' });
-      doc.setFontSize(14); doc.rect(PAGE_WIDTH / 2 - 25, 35, 50, 8); safeText("PURCHASE NOTE", PAGE_WIDTH / 2, 41, { align: 'center' });
-
-      const metaY = 55; doc.setFontSize(10); doc.setFont(FONT, "bold");
-      safeText("Supplier", MARGIN, metaY); safeText(`: ${p.supplierName}`, MARGIN + 20, metaY);
-      safeText("Phone", MARGIN, metaY + 7); safeText(`: ${p.supplierPhone}`, MARGIN + 20, metaY + 7);
+      // --- HEADER ---
+      doc.setTextColor(0); 
+      doc.setFont(FONT, "bold").setFontSize(22);
+      safeText(String(data.shop.name || 'SHOP NAME').toUpperCase(), PAGE_WIDTH / 2, 20, { align: 'center' });
       
-      const boxW = 80; const boxX = PAGE_WIDTH - MARGIN - boxW;
-      doc.rect(boxX, metaY - 5, boxW, 25);
-      safeText("PUR NO.", boxX + 2, metaY); safeText(p.purchaseNumber, boxX + 35, metaY);
-      safeText("DATE", boxX + 2, metaY + 7); safeText(new Date(p.date).toLocaleDateString(), boxX + 35, metaY + 7);
+      doc.setFontSize(9).setFont(FONT, "normal");
+      safeText(String(data.shop.address || ''), PAGE_WIDTH / 2, 26, { align: 'center' });
+      doc.setFont(FONT, "bold"); safeText(`Phone: ${String(data.shop.phone || '')}`, PAGE_WIDTH / 2, 31, { align: 'center' });
 
-      const itData = p.items.map((item, i) => [i + 1, `${item.brand} ${item.modelName}`, item.imeis.length, item.costPrice.toLocaleString(), (item.costPrice * item.imeis.length).toLocaleString()]);
+      doc.setFontSize(14); 
+      doc.rect(PAGE_WIDTH / 2 - 35, 38, 70, 9); 
+      safeText("PURCHASE NOTE", PAGE_WIDTH / 2, 44.5, { align: 'center' });
+
+      // --- SUPPLIER & PURCHASE INFO ---
+      const infoY = 60;
+      doc.setFontSize(10);
+      doc.setFont(FONT, "bold"); safeText("Supplier Name", MARGIN, infoY);
+      doc.setFont(FONT, "normal"); safeText(`: ${p.supplierName}`, MARGIN + 35, infoY);
+      
+      doc.setFont(FONT, "bold"); safeText("Contact No.", MARGIN, infoY + 7);
+      doc.setFont(FONT, "normal"); safeText(`: ${p.supplierPhone}`, MARGIN + 35, infoY + 7);
+      
+      doc.setFont(FONT, "bold"); safeText("Address", MARGIN, infoY + 14);
+      doc.setFont(FONT, "normal"); safeText(`: ${p.supplierAddress || 'N/A'}`, MARGIN + 35, infoY + 14);
+
+      // Box for purchase metadata
+      const metaW = 60; const metaX = PAGE_WIDTH - MARGIN - metaW;
+      doc.setDrawColor(230); doc.rect(metaX, infoY - 5, metaW, 20);
+      doc.setFont(FONT, "bold").setFontSize(9); safeText("PURCHASE NO", metaX + 3, infoY);
+      doc.setFont(FONT, "normal"); safeText(p.purchaseNumber, metaX + 32, infoY);
+      doc.setFont(FONT, "bold"); safeText("ENTRY DATE", metaX + 3, infoY + 8);
+      doc.setFont(FONT, "normal"); safeText(new Date(p.date).toLocaleDateString('en-GB'), metaX + 32, infoY + 8);
+
+      // --- TABLE CONSTRUCTION ---
+      const itData = p.items.map((item, i) => [
+        i + 1, 
+        `${item.brand} ${item.modelName}\nIMEIs:\n${item.imeis.join('\n')}`, 
+        item.imeis.length, 
+        formatAmount(item.costPrice), 
+        formatAmount(item.costPrice * item.imeis.length)
+      ]);
+
       (doc as any).autoTable({
-        startY: metaY + 25, margin: { left: MARGIN, right: MARGIN },
-        head: [['SL', 'MODEL', 'QTY', 'UNIT COST', 'TOTAL']],
-        body: itData, theme: 'grid', styles: { fontSize: 9, font: FONT }
+        startY: infoY + 25, 
+        margin: { left: MARGIN, right: MARGIN },
+        head: [['SL', 'ITEM DESCRIPTION & SERIALS (IMEI)', 'QTY', 'UNIT PRICE', 'SUBTOTAL']],
+        body: itData, 
+        theme: 'grid', 
+        styles: { fontSize: 8.5, font: FONT, cellPadding: 3, textColor: 0, overflow: 'linebreak' },
+        headStyles: { fillColor: [248, 250, 252], textColor: 0, fontStyle: 'bold', halign: 'center', lineWidth: 0.1 },
+        columnStyles: { 
+          0: { cellWidth: 10, halign: 'center' }, 
+          1: { cellWidth: 'auto', fontStyle: 'bold' }, 
+          2: { cellWidth: 15, halign: 'center' }, 
+          3: { cellWidth: 30, halign: 'right' }, 
+          4: { cellWidth: 30, halign: 'right' } 
+        }
       });
 
+      // --- SUMMARY ---
       const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFont(FONT, "bold"); safeText("NET PAYABLE", PAGE_WIDTH - MARGIN - 70, finalY);
-      safeText(p.total.toLocaleString(), PAGE_WIDTH - MARGIN, finalY, { align: 'right' });
+      const sumX = PAGE_WIDTH - MARGIN - 60;
       
+      const drawSum = (label: string, value: string, y: number, isBold = false) => {
+        doc.setFont(FONT, isBold ? "bold" : "normal").setFontSize(isBold ? 11 : 9);
+        safeText(label, sumX, y);
+        safeText(value, PAGE_WIDTH - MARGIN, y, { align: 'right' });
+      };
+
+      let curY = finalY;
+      drawSum("Subtotal:", formatAmount(p.subtotal), curY);
+      drawSum("Tax / VAT:", formatAmount(p.vat), curY += 6);
+      drawSum("Discount:", `- ${formatAmount(p.discount)}`, curY += 6);
+      doc.line(sumX, curY + 2, PAGE_WIDTH - MARGIN, curY + 2);
+      drawSum("Net Total Payable:", formatAmount(p.total), curY += 10, true);
+
+      // --- FOOTER ---
+      const footY = doc.internal.pageSize.getHeight() - 35;
+      doc.setFontSize(9).setFont(FONT, "bold");
+      doc.line(MARGIN, footY, MARGIN + 45, footY); safeText("Supplier Signature", MARGIN + 6, footY + 5);
+      doc.line(PAGE_WIDTH - MARGIN - 45, footY, PAGE_WIDTH - MARGIN, footY); safeText("Authorized Receiver", PAGE_WIDTH - MARGIN - 42, footY + 5);
+
       window.open(doc.output('bloburl'), '_blank');
     } catch (e) { console.error(e); }
   };
@@ -281,7 +339,7 @@ const StockManagement: React.FC<Props> = ({
         />
       )}
 
-      {/* Modals */}
+      {/* Modals remain exactly the same as requested */}
       {editingStock && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] flex items-center justify-center p-4">
            <div className="bg-white rounded-[3rem] max-w-md w-full p-10 shadow-2xl border border-slate-100 animate-in zoom-in duration-300">

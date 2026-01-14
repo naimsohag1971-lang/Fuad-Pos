@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppData, Invoice, PaymentMethod } from '../types';
 import { Icons } from '../constants';
@@ -8,12 +7,11 @@ const numberToWords = (num: number): string => {
   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
   const convert = (n: number): string => {
     const val = Math.floor(n);
-    if (val < 0) return 'Negative ' + convert(Math.abs(val));
     if (val < 20) return a[val];
     if (val < 100) return b[Math.floor(val / 10)] + (val % 10 !== 0 ? ' ' + a[val % 10] : '');
-    if (val < 1000) return convert(Math.floor(val / 100)) + 'Hundred ' + (val % 100 !== 0 ? 'and ' + convert(val % 100) : '');
-    if (val < 100000) return convert(Math.floor(val / 1000)) + 'Thousand ' + (val % 1000 !== 0 ? convert(val % 1000) : '');
-    if (val < 10000000) return convert(Math.floor(val / 100000)) + 'Lakh ' + (val % 100000 !== 0 ? convert(val % 100000) : '');
+    if (val < 1000) return convert(Math.floor(val / 100)) + ' Hundred ' + (val % 100 !== 0 ? 'and ' + convert(val % 100) : '');
+    if (val < 100000) return convert(Math.floor(val / 1000)) + ' Thousand ' + (val % 1000 !== 0 ? convert(val % 1000) : '');
+    if (val < 10000000) return convert(Math.floor(val / 100000)) + ' Lakh ' + (val % 100000 !== 0 ? convert(val % 100000) : '');
     return 'Amount too large';
   };
   if (num === 0) return 'Zero';
@@ -33,9 +31,6 @@ interface Props {
 const InvoiceHistory: React.FC<Props> = ({ data, initialInvoiceId, onClearInitial, onEditInvoice, onDeleteInvoice }) => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'DUE'>('ALL');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,220 +43,265 @@ const InvoiceHistory: React.FC<Props> = ({ data, initialInvoiceId, onClearInitia
 
   const filteredInvoices = useMemo(() => {
     return data.invoices.filter(inv => {
-      const matchesSearch = (inv.customerName || "").toLowerCase().includes(searchQuery.toLowerCase()) || (inv.invoiceNumber || "").toLowerCase().includes(searchQuery.toLowerCase()) || (inv.customerPhone || "").includes(searchQuery);
-      const invDate = new Date(inv.date).setHours(0,0,0,0);
-      const start = startDate ? new Date(startDate).setHours(0,0,0,0) : null;
-      const end = endDate ? new Date(endDate).setHours(0,0,0,0) : null;
-      const matchesDate = (!start || invDate >= start) && (!end || invDate <= end);
-      const isPaid = inv.dueAmount <= 0;
-      const matchesStatus = statusFilter === 'ALL' || (statusFilter === 'PAID' && isPaid) || (statusFilter === 'DUE' && !isPaid);
-      return matchesSearch && matchesDate && matchesStatus;
+      const q = searchQuery.toLowerCase();
+      return (inv.customerName || "").toLowerCase().includes(q) || 
+             (inv.invoiceNumber || "").toLowerCase().includes(q) || 
+             (inv.customerPhone || "").includes(searchQuery);
     }).slice().reverse();
-  }, [data.invoices, searchQuery, startDate, endDate, statusFilter]);
+  }, [data.invoices, searchQuery]);
 
   const generatePDF = (invoice: Invoice) => {
     try {
       const { jsPDF } = (window as any).jspdf;
       if (!jsPDF) return;
       const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-      const MARGIN = 15; 
       const PAGE_WIDTH = doc.internal.pageSize.getWidth();
       const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
+      const MARGIN = 10; 
       const FONT = "helvetica";
-      const n = (val: any) => isFinite(Number(val)) ? Number(val) : 0;
-      const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || ""), n(x), n(y), o);
 
-      // Header
-      doc.setTextColor(0, 0, 0); doc.setFont(FONT, "bold"); doc.setFontSize(24);
-      safeText(String(data.shop.name || 'SHOP NAME').toUpperCase(), PAGE_WIDTH / 2, 18, { align: 'center' });
-      doc.setFontSize(9); doc.setFont(FONT, "normal");
-      safeText(String(data.shop.address || ''), PAGE_WIDTH / 2, 23, { align: 'center' });
-      doc.setFont(FONT, "bold"); safeText(`Mobile : ${String(data.shop.phone || '')}`, PAGE_WIDTH / 2, 28, { align: 'center' });
-      doc.setFontSize(14); doc.rect(n(PAGE_WIDTH / 2 - 25), 35, 50, 8); safeText("SALES INVOICE", PAGE_WIDTH / 2, 41, { align: 'center' });
+      const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || "N/A"), x, y, o);
 
-      // Info Labels
-      const metaY = 55; doc.setFontSize(10); doc.setFont(FONT, "bold");
-      safeText("Customer", MARGIN, metaY); safeText("Address", MARGIN, metaY + 7); safeText("Mobile", MARGIN, metaY + 14); safeText("Attention", MARGIN, metaY + 21);
-      doc.setFont(FONT, "bold"); safeText(`: ${invoice.customerName}`, MARGIN + 20, metaY);
-      doc.setFont(FONT, "normal"); safeText(`: ${invoice.customerAddress || 'N/A'}`, MARGIN + 20, metaY + 7); safeText(`: ${invoice.customerPhone}`, MARGIN + 20, metaY + 14); safeText(`: ${invoice.attention || ''}`, MARGIN + 20, metaY + 21);
+      // --- HEADER ---
+      if (data.shop.logoUrl) doc.addImage(data.shop.logoUrl, 'PNG', MARGIN, 5, 20, 20);
+      doc.setTextColor(0); doc.setFont(FONT, "bold").setFontSize(22);
+      safeText(data.shop.name.toUpperCase(), PAGE_WIDTH / 2, 12, { align: 'center' });
+      doc.setFontSize(9).setFont(FONT, "normal");
+      safeText(data.shop.address, PAGE_WIDTH / 2, 17, { align: 'center' });
+      doc.setFont(FONT, "bold"); safeText(`Mobile : ${data.shop.phone}`, PAGE_WIDTH / 2, 22, { align: 'center' });
+      doc.setFontSize(13); doc.setFont(FONT, "bold");
+      doc.line(PAGE_WIDTH / 2 - 25, 31, PAGE_WIDTH / 2 + 25, 31);
+      safeText("Sales Invoice", PAGE_WIDTH / 2, 30, { align: 'center' });
 
-      // Info Box (Invoice Details)
-      const boxW = 80; const boxX = PAGE_WIDTH - MARGIN - boxW;
-      doc.setLineWidth(0.3); doc.rect(n(boxX), n(metaY - 5), n(boxW), 30);
-      
-      const firstPayment = invoice.payments?.[0];
-      let pMethodStr = (firstPayment?.method || "CASH").toUpperCase();
-      if (firstPayment?.method === PaymentMethod.CARD && firstPayment.bankName) pMethodStr += ` (${firstPayment.bankName.toUpperCase()})`;
-      else if (firstPayment?.paymentPhone) pMethodStr += ` (${firstPayment.paymentPhone})`;
+      // --- META INFO ---
+      const infoW = 60, infoX = PAGE_WIDTH - MARGIN - infoW;
+      let infoY = 35;
+      const drawInfoRow = (label: string, value: string, y: number) => {
+        doc.setFont(FONT, "bold").setFontSize(8);
+        doc.rect(infoX, y, infoW/2, 5.5);
+        safeText(label, infoX + 2, y + 3.8);
+        doc.rect(infoX + infoW/2, y, infoW/2, 5.5);
+        doc.setFont(FONT, "normal");
+        safeText(value, infoX + infoW/2 + 2, y + 3.8, { maxWidth: infoW/2 - 4 });
+      };
 
-      const mRows = [
-        ["INVOICE NO.", invoice.invoiceNumber],
-        ["DATE", new Date(invoice.date).toLocaleDateString('en-GB')],
-        ["PREPARED BY", (data.shop.preparedBy || "SOHAG").toUpperCase()],
-        ["BILL STATUS", invoice.dueAmount <= 0 ? "PAID" : "DUE"],
-        ["PAYMENT", pMethodStr]
-      ];
+      const now = new Date();
+      drawInfoRow("Invoice No.", invoice.invoiceNumber, infoY);
+      drawInfoRow("Date", new Date(invoice.date).toLocaleDateString('en-GB'), infoY += 5.5);
+      drawInfoRow("Prepared By", (data.shop.preparedBy || "ADMIN").toUpperCase(), infoY += 5.5);
+      drawInfoRow("Entry Time", now.toLocaleTimeString(), infoY += 5.5);
+      drawInfoRow("Bill Status", invoice.dueAmount <= 0 ? "PAID" : "DUE", infoY += 5.5);
+      drawInfoRow("Payment Method", invoice.payments?.[0]?.method || "N/A", infoY += 5.5);
 
-      mRows.forEach((r, i) => {
-        const rowY = metaY + (i * 6);
-        doc.setFont(FONT, "bold"); doc.setFontSize(9); safeText(String(r[0]), boxX + 2, rowY);
-        doc.setFont(FONT, "normal"); safeText(String(r[1]), boxX + 35, rowY);
-        if (i < 4) doc.line(n(boxX), n(rowY + 1), n(boxX + boxW), n(rowY + 1));
-      });
-      doc.line(n(boxX + 32), n(metaY - 5), n(boxX + 32), n(metaY + 25));
+      if (invoice.payments?.[0] && invoice.payments[0].method !== PaymentMethod.CASH) {
+        const p = invoice.payments[0];
+        const detailStr = p.method === PaymentMethod.CARD ? p.bankName : (p.transactionId || p.paymentPhone);
+        drawInfoRow("Pymt Details", detailStr || 'N/A', infoY += 5.5);
+      }
 
-      // Table (with auto height for description)
-      const itData = invoice.items.map((item, i) => [i + 1, `${item.brand} ${item.modelName}\nS/N: ${item.imei}`, `1.00`, `PCS`, formatAmount(item.price), formatAmount(item.price)]);
+      // --- CUSTOMER ---
+      let currentY = 38;
+      const valX = MARGIN + 25; const maxValW = infoX - valX - 5;
+      const addCustRow = (label: string, value: string) => {
+        doc.setFont(FONT, "bold").setFontSize(10);
+        safeText(label, MARGIN, currentY);
+        doc.setFont(FONT, "normal");
+        const lines = doc.splitTextToSize(": " + (value || 'N/A'), maxValW);
+        doc.text(lines, valX, currentY);
+        currentY += (lines.length * 5) + 1;
+      };
+      addCustRow("Customer", invoice.customerName);
+      addCustRow("Address", invoice.customerAddress || '');
+      addCustRow("Mobile", invoice.customerPhone);
+      addCustRow("Narration", invoice.attention || '');
+
+      // --- TABLE ---
+      const tableStartY = Math.max(currentY + 5, infoY + 10);
+      const itData = invoice.items.map((it, i) => [
+        i + 1, 
+        `${it.brand} ${it.modelName}\nS/N: ${it.imei}`, 
+        '1.00', 
+        formatAmount(it.price)
+      ]);
+
       (doc as any).autoTable({
-        startY: metaY + 30, margin: { left: MARGIN, right: MARGIN },
-        head: [['SL', 'DESCRIPTION', 'QTY', 'UOM', 'UNIT PRICE', 'AMOUNT']],
-        body: itData, theme: 'grid',
-        headStyles: { fillColor: [240, 240, 240], textColor: 0, lineWidth: 0.1, fontStyle: 'bold', halign: 'center' },
-        styles: { fontSize: 9, font: FONT, lineWidth: 0.1, cellPadding: 3, textColor: 0, overflow: 'linebreak' },
-        columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15, halign: 'center' }, 3: { cellWidth: 15, halign: 'center' }, 4: { cellWidth: 32, halign: 'right' }, 5: { cellWidth: 32, halign: 'right' } }
+        startY: tableStartY, margin: { left: MARGIN, right: MARGIN },
+        head: [['SL', 'DESCRIPTION', 'QTY', 'AMOUNT']],
+        body: itData, theme: 'grid', 
+        headStyles: { fillColor: [255, 255, 255], textColor: 0, lineWidth: 0.1, fontStyle: 'bold', halign: 'center' },
+        styles: { fontSize: 8.5, font: FONT, lineWidth: 0.1, cellPadding: 2, textColor: 0, overflow: 'linebreak' },
+        columnStyles: { 
+          0: { cellWidth: 10, halign: 'center' }, 
+          1: { cellWidth: 'auto', fontStyle: 'bold' }, 
+          2: { cellWidth: 20, halign: 'center' }, 
+          3: { cellWidth: 35, halign: 'right' } 
+        }
       });
 
-      let fY = n((doc as any).lastAutoTable?.finalY) || (metaY + 80);
-      if (fY + 80 > PAGE_HEIGHT - 40) { doc.addPage(); fY = 20; }
+      // --- FOOTER SUMMARY ---
+      let fY = (doc as any).lastAutoTable.finalY;
+      const sumW = 75, sumX = PAGE_WIDTH - MARGIN - sumW;
       
-      // Summary Box & Calculations
-      doc.rect(n(MARGIN), n(fY + 5), 45, 8); doc.setFont(FONT, "bold"); doc.setFontSize(11); safeText(`TOTAL QTY : ${invoice.items.length}.00`, MARGIN + 4, fY + 10.5);
+      doc.rect(MARGIN, fY, PAGE_WIDTH - MARGIN * 2, 8);
+      doc.setFont(FONT, "bold").setFontSize(9);
+      safeText(`TOTAL ITEM QUANTITY :  ${invoice.items.length.toFixed(2)}`, MARGIN + 40, fY + 5.5);
       
-      const sX = PAGE_WIDTH - MARGIN - 70; const vX = PAGE_WIDTH - MARGIN;
-      const calcRows = [["Total Amount", invoice.subtotal], ["Less Discount", invoice.discount], ["Net Payable", invoice.total], ["Received Amount", invoice.paidAmount], ["Current Due", invoice.dueAmount]];
-      calcRows.forEach((r, i) => {
-        const rowY = fY + 10 + (i * 7);
-        if (i === 2) { doc.setFont(FONT, "bold"); doc.setFontSize(13); } else { doc.setFont(FONT, "normal"); doc.setFontSize(10); }
-        safeText(String(r[0]), sX, rowY); safeText(formatAmount(r[1] as number), vX, rowY, { align: 'right' });
-      });
+      let curSY = fY + 18;
+      const drawSumRow = (label: string, val: string, y: number, isBold: boolean = false) => {
+        doc.setFont(FONT, isBold ? "bold" : "normal").setFontSize(8.5);
+        doc.rect(sumX, y, sumW - 25, 6.5); safeText(label, sumX + 2, y + 4.5);
+        doc.rect(sumX + sumW - 25, y, 25, 6.5); safeText(val, sumX + sumW - 2, y + 4.5, { align: 'right' });
+      };
 
-      // Wrapped "In Word" text
-      doc.setFont(FONT, "bold"); doc.setFontSize(8); safeText("TAKA IN WORD", MARGIN, fY + 20);
-      doc.setFont(FONT, "normal"); doc.setFontSize(10);
-      const splitWords = doc.splitTextToSize(numberToWords(invoice.total), sX - MARGIN - 5);
-      doc.text(splitWords, MARGIN, fY + 26);
-      
-      // Signatures
-      const sigY = PAGE_HEIGHT - 35; doc.line(n(MARGIN), n(sigY), n(MARGIN + 50), n(sigY)); doc.line(n(PAGE_WIDTH - MARGIN - 50), n(sigY), n(PAGE_WIDTH - MARGIN), n(sigY));
-      doc.setFontSize(10); doc.setFont(FONT, "bold"); safeText("CUSTOMER SIGNATURE", MARGIN + 25, sigY + 5, { align: 'center' }); safeText("AUTHORIZED SIGNATURE", PAGE_WIDTH - MARGIN - 25, sigY + 5, { align: 'center' });
-      
-      // Footer Name & Color
-      doc.setFont(FONT, "bolditalic"); doc.setFontSize(11);
-      doc.setTextColor(180, 180, 180); // Halka color
-      safeText(`Thank you for your purchase, ${invoice.customerName}!`, PAGE_WIDTH / 2, PAGE_HEIGHT - 12, { align: 'center' });
+      drawSumRow("TOTAL AMOUNT", formatAmount(invoice.subtotal), curSY, true);
+      drawSumRow("LESS DISCOUNT (-)", formatAmount(invoice.discount), curSY += 6.5);
+      drawSumRow("NET PAYABLE", formatAmount(invoice.total), curSY += 6.5, true);
+      drawSumRow("RECEIVED AMOUNT", formatAmount(invoice.paidAmount), curSY += 6.5, true);
+      drawSumRow("CURRENT DUE", formatAmount(invoice.dueAmount), curSY += 6.5, true);
+
+      doc.setFont(FONT, "bold").setFontSize(9); safeText(`Taka In Word :`, MARGIN, fY + 22.5);
+      doc.setFont(FONT, "italic");
+      const wordLines = doc.splitTextToSize(numberToWords(invoice.total), sumX - MARGIN - 10);
+      doc.text(wordLines, MARGIN, fY + 27.5);
+
+      // --- SIGNATURES ---
+      const sigY = PAGE_HEIGHT - 35;
+      doc.line(MARGIN, sigY, MARGIN + 45, sigY); doc.line(PAGE_WIDTH - MARGIN - 45, sigY, PAGE_WIDTH - MARGIN, sigY);
+      doc.setFontSize(9).setFont(FONT, "bold"); safeText("Customer Signature", MARGIN + 5, sigY + 5); safeText("Authorised Signature", PAGE_WIDTH - MARGIN - 40, sigY + 5);
+
+      // --- SYSTEM FOOTER ---
+      const bottomLineY = PAGE_HEIGHT - 12;
+      doc.setDrawColor(230);
+      doc.line(MARGIN, bottomLineY, PAGE_WIDTH - MARGIN, bottomLineY);
+      doc.setFontSize(7).setFont(FONT, "bold").setTextColor(180);
+      safeText(`PRINTED BY: ${(data.shop.preparedBy || 'ADMIN').toUpperCase()}`, MARGIN, PAGE_HEIGHT - 8);
+      safeText(new Date().toLocaleString('en-GB'), PAGE_WIDTH / 2, PAGE_HEIGHT - 8, { align: 'center' });
+      safeText("PAGE 1 OF 1", PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 8, { align: 'right' });
 
       window.open(doc.output('bloburl'), '_blank');
     } catch (e) { console.error(e); }
   };
 
-  const handleShareWhatsApp = () => {
-    if (!selectedInvoice) return;
-    const msg = `Invoice ${selectedInvoice.invoiceNumber} total ${formatAmount(selectedInvoice.total)} from ${data.shop.name}.`;
-    window.open(`https://wa.me/${selectedInvoice.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-  };
-
-  const confirmDelete = () => {
-    if (deleteConfirmId) {
-      onDeleteInvoice(deleteConfirmId);
-      setDeleteConfirmId(null);
-      if (selectedInvoice?.id === deleteConfirmId) {
-        setSelectedInvoice(null);
-      }
-    }
-  };
-
   if (selectedInvoice) {
-    const firstPayment = selectedInvoice.payments?.[0];
-    const groups: Record<string, { brand: string, modelName: string, price: number, imeis: string[] }> = {};
-    (selectedInvoice.items || []).forEach(item => {
-      const key = `${item.brand}-${item.modelName}-${item.price}`;
-      if (!groups[key]) {
-        groups[key] = { brand: item.brand, modelName: item.modelName, price: item.price, imeis: [item.imei] };
-      } else {
-        groups[key].imeis.push(item.imei);
-      }
-    });
+    const mainPymt = selectedInvoice.payments?.[0];
 
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center no-print bg-white p-4 rounded-xl border shadow-sm">
+      <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            #invoice-print-area { display: flex !important; flex-direction: column !important; height: 100% !important; }
+            .page-break-avoid { page-break-inside: avoid !important; }
+          }
+        `}} />
+        <div className="flex justify-between items-center no-print bg-white p-4 rounded-xl border shadow-sm sticky top-0 z-[40]">
           <button onClick={() => setSelectedInvoice(null)} className="text-slate-500 hover:text-slate-900 font-bold flex items-center transition-colors">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg> Back to List
           </button>
           <div className="flex space-x-2">
-            <button onClick={() => onEditInvoice(selectedInvoice)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Edit</button>
-            <button onClick={() => generatePDF(selectedInvoice)} className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Print PDF</button>
-            <button onClick={handleShareWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">WhatsApp</button>
+            <button onClick={() => onEditInvoice(selectedInvoice)} className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Edit</button>
+            <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Print (A4)</button>
             <button onClick={() => setDeleteConfirmId(selectedInvoice.id)} className="bg-rose-50 text-rose-600 px-5 py-2 rounded-lg font-bold text-sm transition-all">Delete</button>
           </div>
         </div>
 
-        <div className="bg-white p-6 md:p-12 max-w-4xl mx-auto border shadow-2xl font-sans text-slate-900 overflow-x-auto relative rounded-3xl">
-          <div className="min-w-[700px]">
-            <div className="text-center mb-10">
-              <h1 className="text-5xl font-black uppercase mb-1 tracking-tighter text-slate-900">{data.shop.name}</h1>
-              <p className="text-sm font-semibold text-slate-500">{data.shop.address}</p>
-              <p className="text-sm font-bold mt-1">Mobile : {data.shop.phone}</p>
-              <div className="mt-6 border-4 border-slate-900 inline-block px-14 py-1"><h2 className="text-2xl font-black uppercase tracking-widest">Sales Invoice</h2></div>
+        <div id="invoice-print-area" className="bg-white max-w-[794px] w-full mx-auto p-10 border shadow-2xl rounded-sm text-slate-900 min-h-[1123px] flex flex-col box-border font-sans print:p-8 print:shadow-none print:border-none print:m-0">
+          <div className="flex items-center justify-between mb-8 border-b-2 border-slate-900 pb-6 page-break-avoid">
+            <div className="w-24">{data.shop.logoUrl && <img src={data.shop.logoUrl} className="w-full h-auto object-contain" alt="Logo" />}</div>
+            <div className="flex-1 text-center px-4">
+              <h1 className="text-4xl font-black uppercase mb-1 tracking-tighter">{data.shop.name}</h1>
+              <p className="text-[12px] font-semibold text-slate-600 leading-tight">{data.shop.address}</p>
+              <p className="text-[12px] font-bold mt-1">Mobile: {data.shop.phone} | Email: {data.shop.email || 'N/A'}</p>
             </div>
+            <div className="w-24"></div> 
+          </div>
 
-            <div className="grid grid-cols-2 gap-16 mb-10">
-              <div className="space-y-3 text-sm">
-                <div className="flex"><span className="font-bold w-24">Customer</span><span className="font-black text-lg">: {selectedInvoice.customerName}</span></div>
-                <div className="flex"><span className="font-bold w-24">Address</span><span>: {selectedInvoice.customerAddress || 'N/A'}</span></div>
-                <div className="flex"><span className="font-bold w-24">Mobile</span><span className="font-bold">: {selectedInvoice.customerPhone}</span></div>
-                <div className="flex"><span className="font-bold w-24">Attention</span><span>: {selectedInvoice.attention || ''}</span></div>
-              </div>
-              <div className="border-4 border-slate-900 text-sm font-bold rounded-xl overflow-hidden">
-                {[["INVOICE NO.", selectedInvoice.invoiceNumber], ["DATE", new Date(selectedInvoice.date).toLocaleDateString('en-GB')], ["PREPARED BY", (data.shop.preparedBy || "SOHAG").toUpperCase()], ["BILL STATUS", selectedInvoice.dueAmount <= 0 ? "PAID" : "DUE"], ["PAYMENT", `${firstPayment?.method}`.toUpperCase()]].map((r, i) => (
-                  <div key={i} className={`grid grid-cols-5 ${i < 4 ? 'border-b-2 border-slate-200' : ''}`}><div className="col-span-2 p-3 font-black bg-slate-50 border-r-2 border-slate-200 uppercase text-xs">{r[0]}</div><div className="col-span-3 p-3 font-black uppercase text-xs">{r[1]}</div></div>
-                ))}
-              </div>
+          <div className="text-center mb-10 page-break-avoid">
+            <span className="border-4 border-slate-900 px-10 py-1.5 text-2xl font-black uppercase tracking-[0.2em]">Sales Invoice</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-12 mb-10 items-start page-break-avoid">
+            <div className="space-y-2 text-[14px]">
+              <div className="flex border-b border-slate-100 pb-1"><span className="font-bold w-24 flex-shrink-0">Customer</span><span className="font-black flex-1">: {selectedInvoice.customerName}</span></div>
+              <div className="flex border-b border-slate-100 pb-1"><span className="font-bold w-24 flex-shrink-0">Address</span><span className="font-medium flex-1 overflow-wrap-anywhere">: {selectedInvoice.customerAddress || 'N/A'}</span></div>
+              <div className="flex border-b border-slate-100 pb-1"><span className="font-bold w-24 flex-shrink-0">Mobile</span><span className="font-bold flex-1">: {selectedInvoice.customerPhone}</span></div>
+              <div className="flex border-b border-slate-100 pb-1"><span className="font-bold w-24 flex-shrink-0">Narration</span><span className="font-medium flex-1">: {selectedInvoice.attention || 'N/A'}</span></div>
             </div>
-
-            <table className="w-full border-collapse border-4 border-slate-900 mb-10 text-xs font-bold">
-              <thead className="bg-slate-50 font-black uppercase border-b-4 border-slate-900">
-                <tr><td className="p-3 border-r-4 border-slate-900 text-center">SL</td><td className="p-3 border-r-4 border-slate-900">Description</td><td className="p-3 border-r-4 border-slate-900 text-center">Qty</td><td className="p-3 border-r-4 border-slate-900 text-center">UOM</td><td className="p-3 border-r-4 border-slate-900 text-right">Unit Price</td><td className="p-3 text-right">Amount</td></tr>
-              </thead>
-              <tbody>
-                {Object.values(groups).map((g, i) => (
-                  <tr key={i} className="border-b-2 border-slate-900">
-                    <td className="p-4 border-r-4 border-slate-900 text-center">{i+1}</td>
-                    <td className="p-4 border-r-4 border-slate-900"><p className="uppercase font-black text-sm">{g.brand} {g.modelName}</p><div className="text-[11px] text-slate-500 font-mono mt-1">{g.imeis.map(imei => <p key={imei}>S/N: {imei}</p>)}</div></td>
-                    <td className="p-4 border-r-4 border-slate-900 text-center">{g.imeis.length}.00</td>
-                    <td className="p-4 border-r-4 border-slate-900 text-center">PCS</td>
-                    <td className="p-4 border-r-4 border-slate-900 text-right">{formatAmount(g.price)}</td>
-                    <td className="p-4 text-right">{formatAmount(g.price * g.imeis.length)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex justify-between items-start">
-              <div className="space-y-10">
-                <div className="border-4 border-slate-900 px-6 py-3 font-black text-lg inline-block min-w-[200px] text-center uppercase tracking-tighter">TOTAL QTY : {selectedInvoice.items.length}.00</div>
-                <div className="space-y-1"><p className="text-[10px] font-black uppercase text-slate-400">Taka In Word</p><p className="text-lg font-bold italic">{numberToWords(selectedInvoice.total)}</p></div>
-              </div>
-              <div className="w-80 space-y-2 text-sm border-t-8 border-slate-900 pt-6">
-                <div className="flex justify-between font-bold text-slate-600"><span>Total Amount</span><span>{formatAmount(selectedInvoice.subtotal)}</span></div>
-                <div className="flex justify-between text-slate-400"><span>Less Discount</span><span>{formatAmount(selectedInvoice.discount)}</span></div>
-                <div className="flex justify-between py-3 border-y border-slate-100 font-black text-3xl text-slate-900"><span>Net Payable</span><span>{formatAmount(selectedInvoice.total)}</span></div>
-                <div className="flex justify-between text-emerald-600 font-black text-lg"><span>Received Amount</span><span>{formatAmount(selectedInvoice.paidAmount)}</span></div>
-                <div className="flex justify-between text-rose-600 font-black text-xl pt-2 border-t-4 border-double border-slate-900"><span>Current Due</span><span>{formatAmount(selectedInvoice.dueAmount)}</span></div>
-              </div>
+            
+            <div className="border-2 border-slate-900 rounded-sm overflow-hidden text-[12px]">
+               <div className="flex border-b-2 border-slate-900"><div className="w-1/2 p-2 bg-slate-50 font-black border-r-2 border-slate-900">INVOICE NO.</div><div className="w-1/2 p-2 font-bold uppercase">{selectedInvoice.invoiceNumber}</div></div>
+               <div className="flex border-b-2 border-slate-900"><div className="w-1/2 p-2 bg-slate-50 font-black border-r-2 border-slate-900">DATE</div><div className="w-1/2 p-2 font-bold">{new Date(selectedInvoice.date).toLocaleDateString('en-GB')}</div></div>
+               <div className="flex border-b-2 border-slate-900"><div className="w-1/2 p-2 bg-slate-50 font-black border-r-2 border-slate-900">PREPARED BY</div><div className="w-1/2 p-2 font-bold uppercase">{(data.shop.preparedBy || 'ADMIN')}</div></div>
+               <div className="flex border-b-2 border-slate-900"><div className="w-1/2 p-2 bg-slate-50 font-black border-r-2 border-slate-900">BILL STATUS</div><div className="w-1/2 p-2 font-black text-blue-700">{selectedInvoice.dueAmount > 0 ? 'DUE' : 'PAID'}</div></div>
+               <div className="flex border-b-2 border-slate-900"><div className="w-1/2 p-2 bg-slate-50 font-black border-r-2 border-slate-900">METHOD</div><div className="w-1/2 p-2 font-bold uppercase">{mainPymt?.method || 'CASH'}</div></div>
+               {mainPymt && mainPymt.method !== PaymentMethod.CASH && (
+                 <div className="flex"><div className="w-1/2 p-2 bg-slate-50 font-black border-r-2 border-slate-900 uppercase">DETAILS</div><div className="w-1/2 p-2 font-bold uppercase">{mainPymt.method === PaymentMethod.CARD ? mainPymt.bankName : (mainPymt.transactionId || mainPymt.paymentPhone)}</div></div>
+               )}
             </div>
-            <div className="mt-32 border-t-2 border-slate-900 pt-2 text-center text-sm font-bold italic text-slate-400">Thank you for your purchase, {selectedInvoice.customerName}!</div>
+          </div>
+
+          <table className="w-full border-collapse border-2 border-slate-900 mb-6 table-fixed">
+            <thead className="bg-slate-50">
+              <tr className="text-[12px] font-black uppercase text-center">
+                <th className="border-2 border-slate-900 p-2 w-[8%]">SL</th>
+                <th className="border-2 border-slate-900 p-2 w-[62%] text-left">DESCRIPTION</th>
+                <th className="border-2 border-slate-900 p-2 w-[10%]">QTY</th>
+                <th className="border-2 border-slate-900 p-2 w-[20%] text-right">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody className="text-[12px] font-medium uppercase">
+              {selectedInvoice.items.map((it, i) => (
+                <tr key={i}>
+                  <td className="border-2 border-slate-900 p-2 text-center">{i+1}</td>
+                  <td className="border-2 border-slate-900 p-2 whitespace-pre-wrap leading-tight">
+                    <span className="font-black text-slate-900 text-[13px]">{it.brand} {it.modelName}</span><br/>
+                    <span className="text-[10px] text-slate-400">S/N: {it.imei}</span>
+                  </td>
+                  <td className="border-2 border-slate-900 p-2 text-center font-bold">1.00</td>
+                  <td className="border-2 border-slate-900 p-2 text-right font-black">{it.price.toLocaleString()}</td>
+                </tr>
+              ))}
+              <tr className="bg-slate-50 font-black text-[13px]">
+                <td colSpan={2} className="border-2 border-slate-900 p-3 text-right uppercase">TOTAL ITEM QUANTITY:</td>
+                <td className="border-2 border-slate-900 p-3 text-center">{selectedInvoice.items.length.toFixed(2)}</td>
+                <td className="border-2 border-slate-900 p-3 text-right">{selectedInvoice.subtotal.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="flex justify-between items-start mt-16 mb-10 gap-10 page-break-avoid">
+            <div className="flex-1 pt-4">
+              <p className="text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Taka In Word :</p>
+              <p className="text-[14px] font-bold italic border-b-2 border-dotted border-slate-400 pb-2">{numberToWords(selectedInvoice.total)}</p>
+            </div>
+            <div className="w-80 space-y-0 text-[13px] border-2 border-slate-900 rounded-sm overflow-hidden">
+               <div className="flex justify-between p-2 border-b border-slate-200"><span>TOTAL AMOUNT</span><span className="font-bold">{formatAmount(selectedInvoice.subtotal)}</span></div>
+               <div className="flex justify-between p-2 border-b border-slate-200"><span>LESS DISCOUNT (-)</span><span className="font-bold">{formatAmount(selectedInvoice.discount)}</span></div>
+               <div className="flex justify-between p-2 bg-slate-900 text-white font-black text-xl tracking-tighter"><span>NET PAYABLE</span><span>{formatAmount(selectedInvoice.total)}</span></div>
+               <div className="flex justify-between p-2 border-b border-slate-200 bg-emerald-50 font-bold text-emerald-800"><span>RECEIVED AMOUNT</span><span>{formatAmount(selectedInvoice.paidAmount)}</span></div>
+               <div className="flex justify-between p-2 font-black text-rose-700 bg-rose-50"><span>CURRENT DUE</span><span>{formatAmount(selectedInvoice.dueAmount)}</span></div>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-20 flex justify-between px-8 page-break-avoid">
+            <div className="w-48 text-center border-t-2 border-slate-900 pt-2 font-black uppercase text-[11px]">Customer Signature</div>
+            <div className="w-48 text-center border-t-2 border-slate-900 pt-2 font-black uppercase text-[11px]">Authorized Signature</div>
+          </div>
+          
+          <div className="mt-12 pt-4 border-t border-slate-100 flex justify-between text-[9px] font-black text-slate-300 uppercase tracking-widest print:opacity-50">
+            <span>PRINTED BY: {(data.shop.preparedBy || 'SYSTEM').toUpperCase()}</span>
+            <span>{new Date().toLocaleString('en-GB')}</span>
+            <span>PAGE 1 OF 1</span>
           </div>
         </div>
 
         {deleteConfirmId && (
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-            <div className="bg-white rounded-[2.5rem] max-w-md w-full p-10 shadow-2xl border-4 border-rose-500 animate-in zoom-in duration-200">
-              <h3 className="text-2xl font-black text-slate-900 uppercase mb-4 text-center">Delete Invoice?</h3>
-              <p className="text-slate-500 text-sm text-center mb-8 font-medium">This will remove the invoice record and return the items to available stock. This cannot be undone.</p>
+            <div className="bg-white rounded-[2.5rem] max-w-md w-full p-10 shadow-2xl border-4 border-rose-500 animate-in zoom-in duration-200 text-center">
+              <h3 className="text-2xl font-black text-slate-900 uppercase mb-4">Delete Invoice?</h3>
+              <p className="text-slate-500 text-sm mb-8">This will return the items to available stock. Proceed?</p>
               <div className="flex flex-col gap-3">
-                <button onClick={confirmDelete} className="w-full bg-rose-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-500/20">Delete Invoice</button>
-                <button onClick={() => setDeleteConfirmId(null)} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
+                <button onClick={() => { onDeleteInvoice(deleteConfirmId); setDeleteConfirmId(null); setSelectedInvoice(null); }} className="w-full bg-rose-600 text-white py-5 rounded-2xl font-black uppercase text-xs">Confirm Delete</button>
+                <button onClick={() => setDeleteConfirmId(null)} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black uppercase text-xs">Cancel</button>
               </div>
             </div>
           </div>
@@ -271,79 +311,41 @@ const InvoiceHistory: React.FC<Props> = ({ data, initialInvoiceId, onClearInitia
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Invoice History</h2>
-      </div>
-      
-      <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-4 border-b">
-          <div className="md:col-span-2 p-4 bg-slate-50 flex items-center space-x-2 border-r">
-             <Icons.Search />
-             <input type="text" placeholder="Search by Invoice, Customer or Phone..." className="bg-transparent outline-none font-bold text-xs flex-1" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          </div>
-          <div className="p-4 bg-slate-50 flex items-center space-x-2 border-r">
-            <span className="text-[10px] font-black text-slate-400 uppercase">Filter:</span>
-            <select className="bg-transparent outline-none font-black text-[10px] uppercase text-blue-600" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
-              <option value="ALL">All Status</option>
-              <option value="PAID">Paid Only</option>
-              <option value="DUE">Due Only</option>
-            </select>
-          </div>
-          <div className="p-4 bg-slate-50 flex items-center justify-center">
-            <span className="text-[10px] font-black text-slate-400 uppercase">{filteredInvoices.length} Found</span>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b"><tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest"><th className="px-8 py-5">Invoice #</th><th className="px-8 py-5">Date</th><th className="px-8 py-5">Customer Info</th><th className="px-8 py-5 text-right">Net Amount</th><th className="px-8 py-5 text-center">Status</th><th className="px-8 py-5 text-right">Actions</th></tr></thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredInvoices.length === 0 ? (
-                <tr><td colSpan={6} className="px-8 py-20 text-center text-slate-400 font-medium italic">No invoices found.</td></tr>
-              ) : (
-                filteredInvoices.map(inv => (
-                  <tr key={inv.id} className="hover:bg-blue-50/30 cursor-pointer group" onClick={() => setSelectedInvoice(inv)}>
-                    <td className="px-8 py-6 font-mono font-black text-blue-600 text-sm group-hover:underline">{inv.invoiceNumber}</td>
-                    <td className="px-8 py-6 text-slate-500 text-xs font-bold">{new Date(inv.date).toLocaleDateString('en-GB')}</td>
-                    <td className="px-8 py-6">
-                      <p className="font-black uppercase text-xs text-slate-900">{inv.customerName}</p>
-                      <p className="text-[10px] font-bold text-slate-400">{inv.customerPhone}</p>
-                    </td>
-                    <td className="px-8 py-6 text-right font-black text-slate-900">{inv.total.toLocaleString()}</td>
-                    <td className="px-8 py-6 text-center">
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${inv.dueAmount <= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{inv.dueAmount <= 0 ? 'PAID' : 'DUE'}</span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <div className="flex justify-end items-center space-x-1">
-                        <button onClick={(e) => { e.stopPropagation(); generatePDF(inv); }} className="p-2 text-slate-300 hover:text-slate-900 transition-colors" title="Print PDF"><Icons.Print /></button>
-                        <button onClick={(e) => { e.stopPropagation(); onEditInvoice(inv); }} className="p-2 text-slate-300 hover:text-blue-600 transition-colors" title="Edit Invoice"><Icons.Settings /></button>
-                        <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(inv.id); }} className="p-2 text-slate-300 hover:text-rose-600 transition-colors" title="Delete Invoice"><Icons.Trash /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+      <div className="p-6 border-b border-slate-50 bg-slate-50/20">
+        <div className="flex items-center bg-white px-5 py-3 rounded-2xl border shadow-sm max-w-md">
+          <div className="text-slate-300 mr-4"><Icons.Search /></div>
+          <input type="text" placeholder="SEARCH BY NAME, PHONE OR INVOICE..." className="flex-1 bg-transparent outline-none font-black text-[10px] tracking-widest text-slate-900 uppercase" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
         </div>
       </div>
-
-      {deleteConfirmId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] max-w-md w-full p-10 shadow-2xl border-4 border-rose-500 animate-in zoom-in duration-200">
-            <div className="w-20 h-20 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Icons.Trash />
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 uppercase mb-4 text-center">Delete Invoice?</h3>
-            <p className="text-slate-500 text-sm text-center mb-8 font-medium">Are you sure? This will remove the invoice record and return the items to available stock.</p>
-            <div className="flex flex-col gap-3">
-              <button onClick={confirmDelete} className="w-full bg-rose-600 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-500/20">Delete Permanent</button>
-              <button onClick={() => setDeleteConfirmId(null)} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/50 border-b border-slate-100">
+            <tr>
+              <th className="px-8 py-5 text-[8px] font-black text-slate-400 uppercase tracking-widest">Invoice No</th>
+              <th className="px-8 py-5 text-[8px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
+              <th className="px-8 py-5 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
+              <th className="px-8 py-5 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+              <th className="px-8 py-5 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filteredInvoices.length === 0 ? (
+              <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">No matching invoices found</td></tr>
+            ) : (
+              filteredInvoices.map(inv => (
+                <tr key={inv.id} className="hover:bg-slate-50/50 transition-all group cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
+                  <td className="px-8 py-5 font-black text-blue-600 text-xs uppercase">{inv.invoiceNumber}</td>
+                  <td className="px-8 py-5"><p className="font-bold text-slate-900 text-xs uppercase">{inv.customerName}</p><p className="text-[9px] text-slate-400 font-bold">{inv.customerPhone}</p></td>
+                  <td className="px-8 py-5 text-right font-black text-slate-900 text-xs">{inv.total.toLocaleString()}</td>
+                  <td className="px-8 py-5 text-center"><span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${inv.dueAmount > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>{inv.dueAmount > 0 ? `DUE` : 'PAID'}</span></td>
+                  <td className="px-8 py-5 text-center"><div className="flex justify-center space-x-3 text-slate-300"><button onClick={(e) => { e.stopPropagation(); setSelectedInvoice(inv); }} className="hover:text-slate-900"><Icons.Print /></button><button onClick={(e) => { e.stopPropagation(); onEditInvoice(inv); }} className="hover:text-blue-600"><Icons.Settings /></button></div></td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

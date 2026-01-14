@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { AppData, Purchase, PurchaseItem, MobileModel } from '../types';
+import { AppData, Purchase, PurchaseItem, MobileModel, Supplier } from '../types';
 import { Icons } from '../constants';
 
 interface Props {
@@ -20,13 +20,18 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
   const [vatPercent, setVatPercent] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const supplierDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
         setIsModelDropdownOpen(false);
+      }
+      if (supplierDropdownRef.current && !supplierDropdownRef.current.contains(event.target as Node)) {
+        setIsSupplierDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -37,13 +42,25 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
     `${m.brand} ${m.modelName}`.toLowerCase().includes(modelSearch.toLowerCase())
   );
 
+  const filteredSuppliers = (data.suppliers || []).filter(s => 
+    s.name.toLowerCase().includes(supplier.name.toLowerCase())
+  );
+
+  const handleSupplierSelect = (s: Supplier) => {
+    setSupplier({
+      name: s.name,
+      phone: s.phone,
+      address: s.address || ''
+    });
+    setIsSupplierDropdownOpen(false);
+  };
+
   const addItem = () => {
     if (!selectedModel || !imeisInput.trim()) {
       alert("Please select a model and enter IMEIs.");
       return;
     }
 
-    // 1. Extract and clean IMEIs from input
     const inputImeis = imeisInput
       .split(/[\n,]/)
       .map(i => i.trim())
@@ -51,7 +68,6 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
 
     if (inputImeis.length === 0) return;
 
-    // 2. Collect all existing IMEIs (from database + current staging queue)
     const existingInDb = new Set(data.stocks.map(s => s.imei));
     const existingInQueue = new Set(items.flatMap(item => item.imeis));
 
@@ -68,12 +84,10 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
       }
     });
 
-    // 3. Warning if duplicates found
     if (duplicates.length > 0) {
       alert(`DUPLICATE IMEI WARNING!\n\nThe following IMEIs are already in the system or current list and will be skipped:\n\n${duplicates.join(', ')}`);
     }
 
-    // 4. If no new valid IMEIs, stop
     if (uniqueToThisEntry.length === 0) {
       setImeisInput('');
       return;
@@ -148,20 +162,38 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* Supplier Info */}
+          {/* Supplier Info with Dynamic Selector */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
             <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-900 mb-6 flex items-center">
               <span className="w-1.5 h-4 bg-slate-900 rounded-full mr-3"></span>
               Supplier Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input 
-                type="text" 
-                placeholder="Supplier Name *" 
-                className="px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 rounded-2xl outline-none font-bold text-[11px] transition-all"
-                value={supplier.name}
-                onChange={e => setSupplier({...supplier, name: e.target.value})}
-              />
+              <div className="relative" ref={supplierDropdownRef}>
+                <input 
+                  type="text" 
+                  placeholder="Type to search or add supplier *" 
+                  className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 rounded-2xl outline-none font-bold text-[11px] transition-all"
+                  value={supplier.name}
+                  onChange={e => { setSupplier({...supplier, name: e.target.value}); setIsSupplierDropdownOpen(true); }}
+                  onFocus={() => setIsSupplierDropdownOpen(true)}
+                />
+                {isSupplierDropdownOpen && filteredSuppliers.length > 0 && (
+                  <div className="absolute z-[60] left-0 right-0 top-full mt-2 bg-white border border-slate-100 shadow-2xl rounded-2xl max-h-48 overflow-y-auto">
+                    {filteredSuppliers.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="w-full text-left px-5 py-3 hover:bg-slate-50 transition-colors flex flex-col group"
+                        onClick={() => handleSupplierSelect(s)}
+                      >
+                        <span className="font-bold text-slate-900 text-[10px] uppercase">{s.name}</span>
+                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{s.phone || 'No phone record'}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <input 
                 type="text" 
                 placeholder="Phone Number" 
@@ -187,7 +219,7 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
             </h3>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3" ref={dropdownRef}>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3" ref={modelDropdownRef}>
                 <div className="md:col-span-6 relative">
                   <input 
                     type="text" 
@@ -257,7 +289,6 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
             </div>
           </div>
 
-          {/* Staged Items Table */}
           <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-6 border-b border-slate-50">
                <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-900">Purchase Queue</h3>
@@ -303,7 +334,6 @@ const PurchaseManager: React.FC<Props> = ({ data, onCreatePurchase }) => {
           </div>
         </div>
 
-        {/* Totals & Dues Sidebar */}
         <div className="bg-slate-900 p-8 rounded-[3rem] shadow-2xl text-white h-fit sticky top-6 space-y-8 border border-slate-800">
            <div className="space-y-1">
              <h3 className="text-lg font-black tracking-tighter uppercase leading-tight">Financial Summary</h3>

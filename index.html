@@ -9,15 +9,19 @@
   
   <!-- Import Map to resolve bare modules -->
   <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@19.0.0",
-      "react-dom": "https://esm.sh/react-dom@19.0.0",
-      "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-      "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime"
-    }
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
+    "react-dom/": "https://esm.sh/react-dom@19.0.0/",
+    "react/": "https://esm.sh/react@19.0.0/",
+    "vite": "https://esm.sh/vite@7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@5.1.2"
   }
-  </script>
+}
+</script>
 
   <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
@@ -66,7 +70,7 @@
     window.auth = getAuth(app);
   </script>
 
-  <!-- Vite Entry Point -->
-  <script type="module" src="/index.tsx"></script>
+  <!-- Entry Point -->
+  <script type="module" src="index.tsx"></script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppData, PaymentMethod, StockStatus } from '../types';
 import { Icons } from '../constants';
@@ -40,6 +41,27 @@ const Reports: React.FC<Props> = ({ data }) => {
           'Selling Price': item.price,
           'Paid Amount': inv.paidAmount,
           'Due Amount': inv.dueAmount
+        });
+      });
+    });
+    return rows;
+  };
+
+  const getPurchaseHistoryData = () => {
+    const rows: any[] = [];
+    data.purchases.forEach(p => {
+      p.items.forEach(item => {
+        rows.push({
+          'Date': new Date(p.date).toLocaleDateString(),
+          'Purchase Number': p.purchaseNumber,
+          'Supplier': p.supplierName,
+          'Item': `${item.brand} ${item.modelName}`,
+          'IMEIs': item.imeis.join(', '),
+          'Qty': item.imeis.length,
+          'Cost': item.costPrice,
+          'Subtotal': item.costPrice * item.imeis.length,
+          'Total Paid': p.paidAmount,
+          'Total Due': p.dueAmount
         });
       });
     });
@@ -117,13 +139,8 @@ const Reports: React.FC<Props> = ({ data }) => {
         fileName = `Payment_Report_${dateStr}.xlsx`;
         break;
       case 'Purchase':
-        reportData = getStockData().map(s => ({
-          'Date': 'N/A',
-          'Item': `${s['Brand Name']} ${s['Model Name']}`,
-          'IMEI': s.IMEI,
-          'Cost': s['Purchase Price']
-        }));
-        fileName = `Purchase_Report_${dateStr}.xlsx`;
+        reportData = getPurchaseHistoryData();
+        fileName = `Purchase_History_Report_${dateStr}.xlsx`;
         break;
     }
 
@@ -147,11 +164,12 @@ const Reports: React.FC<Props> = ({ data }) => {
       case 'Sales': return getSalesData();
       case 'ProfitLoss': return getProfitLossData();
       case 'Payments': return getPaymentData();
+      case 'Purchase': return getPurchaseHistoryData();
       default: return [];
     }
   };
 
-  const preview = currentPreviewData().slice(0, 10);
+  const preview = currentPreviewData().slice(0, 15);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -196,7 +214,7 @@ const Reports: React.FC<Props> = ({ data }) => {
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
-          <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Data Preview (Recent 10)</h3>
+          <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Data Preview (Recent 15)</h3>
           <span className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-full">
             TOTAL ROWS: {currentPreviewData().length}
           </span>
@@ -223,7 +241,7 @@ const Reports: React.FC<Props> = ({ data }) => {
                 preview.map((row, i) => (
                   <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                     {Object.values(row).map((val: any, j) => (
-                      <td key={j} className="px-6 py-4 text-sm font-bold text-slate-900 whitespace-nowrap">
+                      <td key={j} className="px-6 py-4 text-sm font-bold text-slate-900 whitespace-nowrap max-w-[200px] truncate" title={String(val)}>
                         {typeof val === 'number' && !Object.keys(row)[j].includes('IMEI')
                           ? `${val.toLocaleString()}` 
                           : val}

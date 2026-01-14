@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ShopAccount } from '../types';
 
@@ -6,12 +7,12 @@ interface Props {
 }
 
 const ShopRegistration: React.FC<Props> = ({ onRegister }) => {
+  // Removed 'language' property as it is not part of ShopAccount type definition
   const [formData, setFormData] = useState<Omit<ShopAccount, 'isRegistered'>>({
     name: '',
     address: '',
     phone: '',
     email: '',
-    language: 'en',
     preparedBy: 'SOHAG'
   });
 
@@ -25,12 +26,12 @@ const ShopRegistration: React.FC<Props> = ({ onRegister }) => {
   };
 
   const handleSkip = () => {
+    // Removed 'language' property as it is not part of ShopAccount type definition
     onRegister({
       name: 'Demo Mobile POS',
       address: 'Shop Address, Bangladesh',
       phone: '01XXXXXXXXX',
       isRegistered: true,
-      language: 'en',
       preparedBy: 'SOHAG'
     });
   };
