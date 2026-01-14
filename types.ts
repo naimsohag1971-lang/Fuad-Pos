@@ -20,7 +20,8 @@ export interface ShopAccount {
   logoUrl?: string;
   isRegistered: boolean;
   preparedBy?: string;
-  ownerUsername?: string; // New field to identify the user in Firebase
+  ownerUsername?: string;
+  inactivityTimeout?: number; // Minutes before auto-logout
 }
 
 export interface MobileModel {

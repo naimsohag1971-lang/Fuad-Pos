@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { AppData, ShopAccount } from '../types';
 
@@ -41,10 +42,11 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
       address: (formData.get('address') as string).trim(),
       phone: (formData.get('phone') as string).trim(),
       preparedBy: (formData.get('preparedBy') as string).trim(),
+      inactivityTimeout: Number(formData.get('inactivityTimeout')) || 30,
       logoUrl: logoPreview || undefined
     };
     onUpdateShop(updatedShop);
-    alert("Business Profile Updated Successfully.");
+    alert("System Settings Updated Successfully.");
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +63,6 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
     const rawNewPassword = newPassword;
     const rawCurrentPassword = currentPassword;
 
-    // Validation
     if (!rawCurrentPassword) {
       alert("Current Password is Required to confirm security changes.");
       return;
@@ -89,7 +90,6 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
 
       const { EmailAuthProvider, reauthenticateWithCredential, updateEmail, updatePassword } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
 
-      // 1. Re-authenticate
       const credential = EmailAuthProvider.credential(user.email, rawCurrentPassword);
       let userCredential;
       try {
@@ -103,7 +103,6 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
 
       const freshUser = userCredential.user;
 
-      // 2. Update Username (Email behind the scenes)
       if (isUsernameChanged) {
         try {
           const pseudoEmail = `${cleanNewUsername}@mobil.com`;
@@ -117,13 +116,12 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
         }
       }
 
-      // 3. Update Password
       if (isPasswordChanged) {
         if (rawNewPassword.length < 6) throw new Error("New password must be at least 6 characters.");
         await updatePassword(freshUser, rawNewPassword);
       }
 
-      alert("Security update successful. Your credentials have been synchronized.");
+      alert("Security update successful.");
       setCurrentPassword('');
       setNewPassword('');
 
@@ -141,10 +139,6 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">System Configuration</h2>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Manage core identity and data</p>
         </div>
-        <div className="px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-full flex items-center gap-3 border border-emerald-100">
-           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-           <span className="text-[9px] font-black uppercase tracking-widest">Cloud Encrypted</span>
-        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -159,14 +153,14 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
               <div className="flex flex-col items-center">
                 <div 
                   onClick={() => logoInputRef.current?.click()} 
-                  className="w-32 h-32 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex items-center justify-center cursor-pointer overflow-hidden group hover:border-blue-500 transition-colors"
+                  className="w-24 h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center cursor-pointer overflow-hidden group hover:border-blue-500 transition-colors"
                 >
                   {logoPreview ? (
                     <img src={logoPreview} className="w-full h-full object-contain p-2" />
                   ) : (
                     <div className="text-center">
-                      <div className="text-slate-300 mb-1"><svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                      <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Add Logo</span>
+                      <div className="text-slate-300 mb-1"><svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
+                      <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest">Logo</span>
                     </div>
                   )}
                 </div>
@@ -182,17 +176,46 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Primary Phone</label>
                    <input name="phone" defaultValue={data.shop.phone} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all" />
                  </div>
-                 <div className="space-y-2 md:col-span-2">
+                 <div className="space-y-2">
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Authorized Operator</label>
                    <input name="preparedBy" defaultValue={data.shop.preparedBy} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all" />
                  </div>
                  <div className="space-y-2 md:col-span-2">
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Store Address</label>
-                   <textarea name="address" defaultValue={data.shop.address} rows={3} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all resize-none" />
+                   <textarea name="address" defaultValue={data.shop.address} rows={2} className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 focus:bg-white rounded-2xl outline-none font-bold text-sm transition-all resize-none" />
                  </div>
               </div>
-              <button type="submit" className="w-full bg-slate-900 text-white font-black py-5 rounded-[2rem] uppercase text-[11px] tracking-[0.3em] shadow-xl hover:bg-black active:scale-[0.98] transition-all">Save Profile Changes</button>
+              
+              {/* Login Timeout Section Moved To Separate Card below but input must remain in form for submit */}
+              <input type="hidden" name="inactivityTimeout" value={data.shop.inactivityTimeout || 30} />
+              
+              <button type="submit" className="w-full bg-slate-900 text-white font-black py-5 rounded-[2rem] uppercase text-[11px] tracking-[0.3em] shadow-xl hover:bg-black active:scale-[0.98] transition-all">Save Business Profile</button>
             </form>
+          </div>
+
+          <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100">
+            <h3 className="font-black mb-10 text-slate-900 uppercase tracking-widest text-[11px] flex items-center">
+              <span className="w-2 h-5 bg-amber-500 mr-3 rounded-full"></span>
+              Login Timeout
+            </h3>
+            <div className="space-y-4">
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Configure auto-logout duration for inactive sessions</p>
+               <div className="flex items-center gap-4">
+                 <input 
+                  type="number" 
+                  className="w-24 px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-amber-500 focus:bg-white rounded-2xl outline-none font-black text-sm transition-all"
+                  defaultValue={data.shop.inactivityTimeout || 30}
+                  onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (val > 0) {
+                      onUpdateShop({ ...data.shop, inactivityTimeout: val });
+                    }
+                  }}
+                 />
+                 <span className="text-xs font-black text-slate-900 uppercase tracking-widest">Minutes</span>
+               </div>
+               <p className="text-[9px] text-slate-300 font-bold italic">The session will automatically expire if no user interaction is detected for the specified time.</p>
+            </div>
           </div>
 
           <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 flex items-center justify-between">
@@ -210,7 +233,7 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
 
         {/* Security Settings */}
         <div className="lg:col-span-5 space-y-8">
-          <div className="bg-slate-900 p-10 rounded-[3rem] shadow-[0_40px_80px_-20px_rgba(15,23,42,0.3)] text-white">
+          <div className="bg-slate-900 p-10 rounded-[3rem] shadow-2xl text-white">
             <h3 className="font-black mb-8 text-blue-400 uppercase tracking-widest text-[11px] flex justify-between items-center">
               Account Security
               <span className="text-slate-600 font-mono text-[9px] lowercase tracking-normal bg-slate-800 px-3 py-1 rounded-full">{displayUsername}</span>
@@ -218,27 +241,22 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
 
             <div className="space-y-6">
                <div className="space-y-2">
-                 <label className="text-[9px] font-black text-slate-500 uppercase block tracking-widest px-1">Login ID (Username)</label>
+                 <label className="text-[9px] font-black text-slate-500 uppercase block tracking-widest px-1">Login ID</label>
                  <input 
                    type="text" 
                    autoComplete="off"
-                   spellCheck="false"
-                   data-lpignore="true"
                    className="w-full bg-slate-800 border-2 border-transparent focus:border-blue-500 outline-none p-5 rounded-2xl font-black text-white text-sm transition-all" 
                    value={newUsername} 
                    onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))} 
                  />
-                 <p className="text-[8px] text-slate-600 font-bold uppercase tracking-tight px-1 italic">
-                   Current ID: {displayUsername}. Letters and numbers only.
-                 </p>
                </div>
 
                <div className="space-y-2">
-                 <label className="text-[9px] font-black text-slate-500 uppercase block tracking-widest px-1">New System Password</label>
+                 <label className="text-[9px] font-black text-slate-500 uppercase block tracking-widest px-1">New Password</label>
                  <input 
                    type="password" 
                    autoComplete="new-password"
-                   placeholder="Leave empty to keep current" 
+                   placeholder="Keep empty to skip" 
                    className="w-full bg-slate-800 border-2 border-transparent focus:border-blue-500 outline-none p-5 rounded-2xl font-black text-white text-sm transition-all tracking-[0.3em] placeholder:tracking-normal placeholder:font-bold" 
                    value={newPassword} 
                    onChange={e => setNewPassword(e.target.value)} 
@@ -246,18 +264,15 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
                </div>
 
                <div className="pt-6 border-t border-slate-800 space-y-2">
-                 <label className="text-[9px] font-black text-rose-500 uppercase block tracking-[0.2em] px-1">Current Password *</label>
+                 <label className="text-[9px] font-black text-rose-500 uppercase block tracking-[0.2em] px-1">Verify Current Password *</label>
                  <input 
                    type="password" 
                    autoComplete="current-password"
-                   placeholder="Required to authorize update" 
+                   placeholder="Authorize Change" 
                    className="w-full bg-slate-800 border-2 border-rose-500/30 focus:border-rose-500 outline-none p-5 rounded-2xl font-black text-white text-sm transition-all tracking-[0.3em] placeholder:tracking-normal placeholder:font-bold" 
                    value={currentPassword} 
                    onChange={e => setCurrentPassword(e.target.value)} 
                  />
-                 <p className="text-[8px] text-rose-500/50 font-black uppercase tracking-widest px-1">
-                   Security check required for any credential changes.
-                 </p>
                </div>
 
                <button 
@@ -265,30 +280,27 @@ const Settings: React.FC<Props> = ({ data, onUpdateShop, onRestore, onResetAll }
                 disabled={isUpdatingSecurity} 
                 className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.3em] shadow-2xl disabled:opacity-50 active:scale-[0.98] transition-all"
                >
-                 {isUpdatingSecurity ? 'Verifying...' : 'Confirm Security Update'}
+                 {isUpdatingSecurity ? 'Verifying...' : 'Update Security'}
                </button>
             </div>
           </div>
 
           <div className="bg-rose-50 p-10 rounded-[3rem] border border-rose-100">
              <h3 className="text-rose-600 font-black text-[11px] uppercase tracking-widest mb-2">Emergency Reset</h3>
-             <p className="text-rose-400 text-[10px] font-bold leading-relaxed mb-6">Permanently wipe all catalog, stock, and transaction history. Cloud storage will be cleared immediately.</p>
-             <button onClick={() => setIsResetConfirming(true)} className="w-full bg-white text-rose-600 border border-rose-200 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all">Factory Reset System</button>
+             <p className="text-rose-400 text-[10px] font-bold leading-relaxed mb-6">Wipe all local and cloud data permanently.</p>
+             <button onClick={() => setIsResetConfirming(true)} className="w-full bg-white text-rose-600 border border-rose-200 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all">Factory Reset</button>
           </div>
         </div>
       </div>
 
       {isResetConfirming && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl z-[200] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3.5rem] max-w-md w-full p-12 shadow-2xl border-t-[10px] border-rose-600 text-center animate-in zoom-in duration-200">
-            <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-8">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </div>
-            <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Total Wipeout?</h3>
-            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest leading-relaxed mb-10 px-4">This action cannot be undone. All data will be purged forever.</p>
+          <div className="bg-white rounded-[3.5rem] max-w-md w-full p-12 shadow-2xl text-center animate-in zoom-in duration-200">
+            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-4">Total Wipeout?</h3>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-10">This cannot be undone.</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => { onResetAll(); setIsResetConfirming(false); }} className="w-full bg-rose-600 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl">Yes, Purge Everything</button>
-              <button onClick={() => setIsResetConfirming(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-[2rem] font-black uppercase text-xs tracking-widest">Cancel Request</button>
+              <button onClick={() => { onResetAll(); setIsResetConfirming(false); }} className="w-full bg-rose-600 text-white py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl">Yes, Purge Data</button>
+              <button onClick={() => setIsResetConfirming(false)} className="w-full bg-slate-100 text-slate-500 py-4 rounded-[2rem] font-black uppercase text-xs tracking-widest">Cancel</button>
             </div>
           </div>
         </div>

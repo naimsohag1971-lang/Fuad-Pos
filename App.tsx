@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   const idleTimerRef = useRef<number | null>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   const getStorageKey = (username: string) => `mobil_pos_v2_user_${username}`;
 
@@ -51,23 +52,40 @@ const App: React.FC = () => {
     setCurrentUsername(username);
   };
 
+  // Inactivity Auto Logout - Dynamic Timeout
   useEffect(() => {
-    if (!activeShopId) return;
+    if (!activeShopId || !data) return;
+    const timeoutMins = data.shop.inactivityTimeout || 30;
+    
     const resetTimer = () => {
       if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
       idleTimerRef.current = window.setTimeout(() => {
         handleLogout();
-        alert("Session expired due to 30 minutes of inactivity.");
-      }, 30 * 60 * 1000); 
+        alert(`Session expired due to ${timeoutMins} minutes of inactivity.`);
+      }, timeoutMins * 60 * 1000); 
     };
+
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
     events.forEach(name => window.addEventListener(name, resetTimer));
     resetTimer();
+
     return () => {
       events.forEach(name => window.removeEventListener(name, resetTimer));
       if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
     };
-  }, [activeShopId]);
+  }, [activeShopId, data?.shop?.inactivityTimeout]);
+
+  // Click Outside to Hide Sidebar
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // If sidebar is NOT collapsed (meaning it is expanded) and we click outside it
+      if (!isSidebarCollapsed && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        setIsSidebarCollapsed(true);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     const initAuthListener = async () => {
@@ -127,7 +145,8 @@ const App: React.FC = () => {
             phone: '', 
             isRegistered: true, 
             preparedBy: 'Admin',
-            ownerUsername: currentUsername
+            ownerUsername: currentUsername,
+            inactivityTimeout: 30
           },
           models: [], stocks: [], invoices: [], purchases: [], suppliers: []
         };
@@ -222,22 +241,24 @@ const App: React.FC = () => {
       )}
 
       <aside 
+        ref={sidebarRef}
         className={`bg-white border-r border-slate-100 flex flex-col no-print fixed md:sticky top-0 h-screen z-[100] transition-all duration-500 ease-in-out ${
-          isSidebarCollapsed ? 'w-[88px]' : 'w-[300px]'
+          isSidebarCollapsed ? 'w-[88px]' : 'w-[280px]'
         }`}
       >
         <div className={`p-6 flex-1 overflow-y-auto no-scrollbar flex flex-col ${isSidebarCollapsed ? 'items-center' : ''}`}>
           <div className={`flex items-center justify-between mb-12 w-full ${isSidebarCollapsed ? 'flex-col space-y-4' : ''}`}>
             {!isSidebarCollapsed && (
               <div className="flex flex-col">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Smart POS</h1>
+                <h1 className="text-xl font-black text-slate-900 tracking-tighter uppercase leading-none">Smart POS</h1>
                 <p className="text-[7px] font-black uppercase text-slate-400 tracking-[0.4em] mt-1.5">Enterprise Suite</p>
               </div>
             )}
             
             <button 
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
+              onClick={(e) => { e.stopPropagation(); setIsSidebarCollapsed(!isSidebarCollapsed); }}
+              className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all shadow-sm"
+              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
             >
               <svg className={`w-5 h-5 transition-transform duration-500 ${isSidebarCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -249,7 +270,8 @@ const App: React.FC = () => {
             {navItems.map(item => (
               <button
                 key={item.id}
-                onClick={() => { 
+                onClick={(e) => { 
+                  e.stopPropagation();
                   setActiveTab(item.id as any); 
                   setEditingInvoice(null); 
                   if(item.id === 'stock') setInventorySubTab('available'); 
@@ -263,7 +285,7 @@ const App: React.FC = () => {
                 <div className="scale-90 flex-shrink-0"><item.icon /></div>
                 {!isSidebarCollapsed && <span>{item.label}</span>}
                 
-                {/* SMART TOOLTIP FOR COLLAPSED STATE */}
+                {/* TOOLTIP ON HOVER */}
                 {isSidebarCollapsed && (
                   <div className="absolute left-full ml-4 px-4 py-2 bg-slate-900 text-white text-[9px] font-black rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-[110] shadow-xl border border-slate-800">
                     <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
@@ -274,10 +296,9 @@ const App: React.FC = () => {
             ))}
           </nav>
 
-          {/* Settings at the bottom of the main list */}
           <div className={`mt-auto pt-6 border-t border-slate-50 w-full space-y-3 ${isSidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
              <button
-                onClick={() => { setActiveTab('settings'); setEditingInvoice(null); }}
+                onClick={(e) => { e.stopPropagation(); setActiveTab('settings'); setEditingInvoice(null); }}
                 className={`group relative w-full flex items-center rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
                   isSidebarCollapsed ? 'justify-center p-3.5' : 'px-5 py-3.5 space-x-4'
                 } ${
@@ -296,7 +317,7 @@ const App: React.FC = () => {
               </button>
 
               <button 
-                onClick={handleLogout} 
+                onClick={(e) => { e.stopPropagation(); handleLogout(); }} 
                 className={`group relative w-full flex items-center rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-transparent ${
                   isSidebarCollapsed ? 'justify-center p-3.5 text-rose-500 hover:bg-rose-50' : 'px-5 py-3.5 space-x-4 bg-slate-50 text-rose-500 hover:bg-rose-100'
                 }`}
