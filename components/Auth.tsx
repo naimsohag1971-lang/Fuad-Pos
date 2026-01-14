@@ -33,7 +33,6 @@ const Auth: React.FC<Props> = ({ onLogin }) => {
         createUserWithEmailAndPassword
       } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
 
-      // Appends pseudo-domain for Firebase compatibility
       const targetEmail = `${cleanUsername}@mobil.com`;
 
       if (mode === 'login') {
@@ -77,13 +76,12 @@ const Auth: React.FC<Props> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-6 font-sans relative overflow-hidden">
-      {/* Decorative background elements */}
       <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-slate-900/5 rounded-full blur-[120px]"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-slate-400/5 rounded-full blur-[120px]"></div>
 
       <div className="bg-white w-full max-w-md rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.12)] p-12 relative z-10 border border-slate-100 animate-in fade-in zoom-in duration-500">
         <div className="text-center mb-10">
-          <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none mb-3">Smart POS</h1>
+          <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none mb-3">Mobile POS</h1>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.5em]">Enterprise Desktop Suite</p>
         </div>
 
@@ -94,7 +92,7 @@ const Auth: React.FC<Props> = ({ onLogin }) => {
         )}
 
         <form onSubmit={handleAction} className="space-y-6">
-          <div className="group">
+          <div className="group text-left">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2 block">Login ID (Username)</label>
             <input
               type="text"
@@ -107,7 +105,7 @@ const Auth: React.FC<Props> = ({ onLogin }) => {
             />
           </div>
           
-          <div className="group">
+          <div className="group text-left">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2 block">System Password</label>
             <input
               type="password"

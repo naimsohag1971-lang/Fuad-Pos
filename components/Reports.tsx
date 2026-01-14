@@ -8,82 +8,119 @@ interface Props {
 }
 
 type ReportType = 'Stock' | 'Sales' | 'Purchase' | 'ProfitLoss' | 'Payments';
+type DatePeriod = 'all' | 'today' | '7days' | 'month' | 'custom';
 
 const Reports: React.FC<Props> = ({ data }) => {
   const [activeReport, setActiveReport] = useState<ReportType>('Sales');
+  const [datePeriod, setDatePeriod] = useState<DatePeriod>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [showToast, setShowToast] = useState(false);
 
+  const isDateInPeriod = (dateStr: string) => {
+    if (datePeriod === 'all') return true;
+    const date = new Date(dateStr);
+    const now = new Date();
+    
+    if (datePeriod === 'today') {
+      return date.toDateString() === now.toDateString();
+    } else if (datePeriod === '7days') {
+      const weekAgo = new Date();
+      weekAgo.setDate(now.getDate() - 7);
+      return date >= weekAgo;
+    } else if (datePeriod === 'month') {
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    } else if (datePeriod === 'custom' && startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return date >= start && date <= end;
+    }
+    return true;
+  };
+
   const getStockData = () => {
-    return data.stocks.map(stock => {
-      const model = data.models.find(m => m.id === stock.modelId);
-      return {
-        'Brand Name': model?.brand || 'N/A',
-        'Model Name': model?.modelName || 'N/A',
-        'IMEI': stock.imei,
-        'Purchase Price': model?.purchasePrice || 0,
-        'Selling Price': model?.sellingPrice || 0,
-        'Stock Status': stock.status
-      };
-    });
+    return data.stocks
+      .filter(s => isDateInPeriod(s.dateAdded))
+      .map(stock => {
+        const model = data.models.find(m => m.id === stock.modelId);
+        return {
+          'Added Date': new Date(stock.dateAdded).toLocaleDateString('en-GB'),
+          'Brand Name': model?.brand || 'N/A',
+          'Model Name': model?.modelName || 'N/A',
+          'IMEI': stock.imei,
+          'Purchase Price': stock.purchasePrice || 0,
+          'Selling Price': stock.sellingPrice || 0,
+          'Stock Status': stock.status
+        };
+      });
   };
 
   const getSalesData = () => {
     const rows: any[] = [];
-    data.invoices.forEach(inv => {
-      inv.items.forEach(item => {
-        rows.push({
-          'Invoice Number': inv.invoiceNumber,
-          'Date': new Date(inv.date).toLocaleDateString('en-GB'),
-          'Customer Name': inv.customerName,
-          'Customer Phone': inv.customerPhone,
-          'IMEI': item.imei,
-          'Model Name': `${item.brand} ${item.modelName}`,
-          'Selling Price': item.price,
-          'Paid Amount': inv.paidAmount,
-          'Due Amount': inv.dueAmount
+    data.invoices
+      .filter(inv => isDateInPeriod(inv.date))
+      .forEach(inv => {
+        inv.items.forEach(item => {
+          rows.push({
+            'Invoice Number': inv.invoiceNumber,
+            'Date': new Date(inv.date).toLocaleDateString('en-GB'),
+            'Customer Name': inv.customerName,
+            'Customer Phone': inv.customerPhone,
+            'IMEI': item.imei,
+            'Model Name': `${item.brand} ${item.modelName}`,
+            'Selling Price': item.price,
+            'Paid Amount': inv.paidAmount,
+            'Due Amount': inv.dueAmount
+          });
         });
       });
-    });
     return rows;
   };
 
   const getPurchaseHistoryData = () => {
     const rows: any[] = [];
-    data.purchases.forEach(p => {
-      p.items.forEach(item => {
-        rows.push({
-          'Date': new Date(p.date).toLocaleDateString('en-GB'),
-          'Purchase Number': p.purchaseNumber,
-          'Supplier': p.supplierName,
-          'Item': `${item.brand} ${item.modelName}`,
-          'IMEIs': item.imeis.join(', '),
-          'Qty': item.imeis.length,
-          'Cost': item.costPrice,
-          'Subtotal': item.costPrice * item.imeis.length,
-          'Total Paid': p.paidAmount,
-          'Total Due': p.dueAmount
+    data.purchases
+      .filter(p => isDateInPeriod(p.date))
+      .forEach(p => {
+        p.items.forEach(item => {
+          rows.push({
+            'Date': new Date(p.date).toLocaleDateString('en-GB'),
+            'Purchase Number': p.purchaseNumber,
+            'Supplier': p.supplierName,
+            'Item': `${item.brand} ${item.modelName}`,
+            'IMEIs': item.imeis.join(', '),
+            'Qty': item.imeis.length,
+            'Cost': item.costPrice,
+            'Subtotal': item.costPrice * item.imeis.length,
+            'Total Paid': p.paidAmount,
+            'Total Due': p.dueAmount
+          });
         });
       });
-    });
     return rows;
   };
 
   const getProfitLossData = () => {
     const months: Record<string, { purchase: number; sales: number; discount: number }> = {};
     
-    data.stocks.forEach(stock => {
-      const model = data.models.find(m => m.id === stock.modelId);
-      const month = stock.dateAdded.slice(0, 7);
-      if (!months[month]) months[month] = { purchase: 0, sales: 0, discount: 0 };
-      months[month].purchase += (model?.purchasePrice || 0);
-    });
+    data.stocks
+      .filter(s => isDateInPeriod(s.dateAdded))
+      .forEach(stock => {
+        const month = stock.dateAdded.slice(0, 7);
+        if (!months[month]) months[month] = { purchase: 0, sales: 0, discount: 0 };
+        months[month].purchase += (stock.purchasePrice || 0);
+      });
 
-    data.invoices.forEach(inv => {
-      const month = inv.date.slice(0, 7);
-      if (!months[month]) months[month] = { purchase: 0, sales: 0, discount: 0 };
-      months[month].sales += inv.total;
-      months[month].discount += inv.discount;
-    });
+    data.invoices
+      .filter(inv => isDateInPeriod(inv.date))
+      .forEach(inv => {
+        const month = inv.date.slice(0, 7);
+        if (!months[month]) months[month] = { purchase: 0, sales: 0, discount: 0 };
+        months[month].sales += inv.total;
+        months[month].discount += inv.discount;
+      });
 
     return Object.entries(months).map(([month, vals]) => ({
       'Month': month,
@@ -96,18 +133,20 @@ const Reports: React.FC<Props> = ({ data }) => {
 
   const getPaymentData = () => {
     const rows: any[] = [];
-    data.invoices.forEach(inv => {
-      inv.payments.forEach(p => {
-        rows.push({
-          'Date': new Date(inv.date).toLocaleDateString('en-GB'),
-          'Invoice Number': inv.invoiceNumber,
-          'Payment Method': p.method,
-          'Bank / Phone Ref': p.bankName || p.paymentPhone || 'N/A',
-          'Transaction ID': p.transactionId || 'N/A',
-          'Amount': p.amount
+    data.invoices
+      .filter(inv => isDateInPeriod(inv.date))
+      .forEach(inv => {
+        inv.payments.forEach(p => {
+          rows.push({
+            'Date': new Date(inv.date).toLocaleDateString('en-GB'),
+            'Invoice Number': inv.invoiceNumber,
+            'Payment Method': p.method,
+            'Bank / Phone Ref': p.bankName || p.paymentPhone || 'N/A',
+            'Transaction ID': p.transactionId || 'N/A',
+            'Amount': p.amount
+          });
         });
       });
-    });
     return rows;
   };
 
@@ -120,7 +159,7 @@ const Reports: React.FC<Props> = ({ data }) => {
       case 'Purchase': return getPurchaseHistoryData();
       default: return [];
     }
-  }, [data, activeReport]);
+  }, [data, activeReport, datePeriod, startDate, endDate]);
 
   const totalCollection = useMemo(() => {
     if (activeReport !== 'Payments') return 0;
@@ -171,27 +210,72 @@ const Reports: React.FC<Props> = ({ data }) => {
         </button>
       </div>
 
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-slate-50 rounded-2xl no-scrollbar border border-slate-100">
-        {[
-          { id: 'Sales', label: 'Sales Report', icon: Icons.Invoice },
-          { id: 'Stock', label: 'Stock Status', icon: Icons.Stock },
-          { id: 'ProfitLoss', label: 'Profit & Loss', icon: Icons.Report },
-          { id: 'Payments', label: 'Payments Report', icon: Icons.Dashboard },
-          { id: 'Purchase', label: 'Purchase Logs', icon: Icons.Plus },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveReport(tab.id as ReportType)}
-            className={`flex items-center space-x-3 px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest whitespace-nowrap transition-all ${
-              activeReport === tab.id 
-                ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <div className="scale-75"><tab.icon /></div>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+      <div className="space-y-4">
+        <div className="flex overflow-x-auto gap-2 p-1.5 bg-slate-50 rounded-2xl no-scrollbar border border-slate-100">
+          {[
+            { id: 'Sales', label: 'Sales Report', icon: Icons.Invoice },
+            { id: 'Stock', label: 'Stock Status', icon: Icons.Stock },
+            { id: 'ProfitLoss', label: 'Profit & Loss', icon: Icons.Report },
+            { id: 'Payments', label: 'Payments Report', icon: Icons.Dashboard },
+            { id: 'Purchase', label: 'Purchase Logs', icon: Icons.Plus },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveReport(tab.id as ReportType)}
+              className={`flex items-center space-x-3 px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest whitespace-nowrap transition-all ${
+                activeReport === tab.id 
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <div className="scale-75"><tab.icon /></div>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Date Filter Bar */}
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          {[
+            { id: 'all', label: 'All Time' },
+            { id: 'today', label: 'Today' },
+            { id: '7days', label: 'Last 7 Days' },
+            { id: 'month', label: 'This Month' },
+            { id: 'custom', label: 'Custom Range' }
+          ].map(btn => (
+            <button 
+              key={btn.id}
+              onClick={() => setDatePeriod(btn.id as DatePeriod)}
+              className={`px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${datePeriod === btn.id ? 'bg-slate-900 text-white shadow-lg' : 'bg-white border text-slate-400 hover:border-slate-300'}`}
+            >
+              {btn.label}
+            </button>
+          ))}
+
+          {datePeriod === 'custom' && (
+            <div className="flex items-center gap-3 animate-in slide-in-from-left-2 duration-300 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm ml-2">
+              <div className="flex items-center space-x-2">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">From</label>
+                <input 
+                  type="date" 
+                  className="bg-slate-50 border-none rounded-lg px-3 py-1.5 text-[10px] font-bold outline-none" 
+                  value={startDate} 
+                  onChange={e => setStartDate(e.target.value)} 
+                />
+              </div>
+              <div className="w-2 h-0.5 bg-slate-100 rounded-full"></div>
+              <div className="flex items-center space-x-2">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">To</label>
+                <input 
+                  type="date" 
+                  className="bg-slate-50 border-none rounded-lg px-3 py-1.5 text-[10px] font-bold outline-none" 
+                  value={endDate} 
+                  onChange={e => setEndDate(e.target.value)} 
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -201,7 +285,7 @@ const Reports: React.FC<Props> = ({ data }) => {
               <span className="w-1.5 h-3 bg-blue-600 rounded-full mr-3"></span>
               Dataset Preview
             </h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Showing top records for {activeReport}</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Showing filtered records for {activeReport}</p>
           </div>
           <div className="flex items-center gap-4">
             {activeReport === 'Payments' && (
@@ -230,7 +314,7 @@ const Reports: React.FC<Props> = ({ data }) => {
               {preview.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-8 py-24 text-center text-slate-300 font-black uppercase text-[10px] tracking-widest">
-                    No records found in this category
+                    No records found for the selected period
                   </td>
                 </tr>
               ) : (

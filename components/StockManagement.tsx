@@ -79,15 +79,15 @@ const StockManagement: React.FC<Props> = ({
       const { jsPDF } = (window as any).jspdf;
       if (!jsPDF) return;
       const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-      const MARGIN = 15;
+      const MARGIN = 10;
       const PAGE_WIDTH = doc.internal.pageSize.getWidth();
       const FONT = "helvetica";
+      const logoSize = 35;
       const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || ""), Number(x), Number(y), o);
 
-      // --- LOGO HANDLING (TOP LEFT, 60% OPACITY) ---
+      // --- LOGO HANDLING (TOP RIGHT side, 60% OPACITY) ---
       if (data.shop.logoUrl && data.shop.logoUrl.startsWith('data:image')) {
         try {
-          const logoSize = 35;
           const mimeMatch = data.shop.logoUrl.match(/^data:(image\/[a-zA-Z+.-]+);base64,/);
           const mimeType = mimeMatch ? mimeMatch[1] : '';
           const formatMatch = mimeType.match(/\/([a-zA-Z+]+)$/);
@@ -98,13 +98,13 @@ const StockManagement: React.FC<Props> = ({
             const gState = new (doc as any).GState({ opacity: 0.6 });
             doc.saveGraphicsState();
             doc.setGState(gState);
-            doc.addImage(data.shop.logoUrl, format, MARGIN, 5, logoSize, logoSize);
+            doc.addImage(data.shop.logoUrl, format, PAGE_WIDTH - MARGIN - logoSize, 5, logoSize, logoSize);
             doc.restoreGraphicsState();
           }
         } catch (e) { console.error("Logo Render Error:", e); }
       }
 
-      // --- HEADER ---
+      // --- HEADER (CENTERED) ---
       doc.setTextColor(0); 
       doc.setFont(FONT, "bold").setFontSize(22);
       safeText(String(data.shop.name || 'SHOP NAME').toUpperCase(), PAGE_WIDTH / 2, 20, { align: 'center' });
@@ -112,7 +112,6 @@ const StockManagement: React.FC<Props> = ({
       doc.setFontSize(9).setFont(FONT, "normal");
       safeText(String(data.shop.address || ''), PAGE_WIDTH / 2, 26, { align: 'center' });
       doc.setFont(FONT, "bold"); 
-      // Include email next to phone number
       safeText(`Phone: ${String(data.shop.phone || '')}${data.shop.email ? ` | Email: ${data.shop.email}` : ''}`, PAGE_WIDTH / 2, 31, { align: 'center' });
 
       doc.setFontSize(14); 

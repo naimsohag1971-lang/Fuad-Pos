@@ -7,13 +7,12 @@ interface Props {
 }
 
 const ShopRegistration: React.FC<Props> = ({ onRegister }) => {
-  // Removed 'language' property as it is not part of ShopAccount type definition
   const [formData, setFormData] = useState<Omit<ShopAccount, 'isRegistered'>>({
     name: '',
     address: '',
     phone: '',
     email: '',
-    preparedBy: 'SOHAG'
+    preparedBy: 'ADMIN'
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -26,19 +25,17 @@ const ShopRegistration: React.FC<Props> = ({ onRegister }) => {
   };
 
   const handleSkip = () => {
-    // Removed 'language' property as it is not part of ShopAccount type definition
     onRegister({
-      name: 'Demo Mobile POS',
-      address: 'Shop Address, Bangladesh',
+      name: 'Mobile Phone Shop',
+      address: 'Store Address, Bangladesh',
       phone: '01XXXXXXXXX',
       isRegistered: true,
-      preparedBy: 'SOHAG'
+      preparedBy: 'ADMIN'
     });
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 font-sans">
-      {/* Subtle Background pattern */}
       <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
       
       <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] p-12 relative z-10 border border-slate-100 animate-in fade-in zoom-in duration-700">
@@ -48,11 +45,11 @@ const ShopRegistration: React.FC<Props> = ({ onRegister }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase leading-none">POS Manager</h1>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase leading-none">Mobile POS</h1>
           <p className="text-slate-400 text-[10px] font-black mt-3 uppercase tracking-[0.4em]">Business Management Suite</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 text-left">
           <div className="space-y-4">
             <div className="group">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2 block">Shop Name</label>
@@ -119,16 +116,12 @@ const ShopRegistration: React.FC<Props> = ({ onRegister }) => {
                 Skip & Demo
               </button>
               <div className="flex gap-4">
-                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">v1.0.4</span>
+                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">v1.1.0</span>
               </div>
             </div>
           </div>
         </form>
       </div>
-
-      <footer className="fixed bottom-8 text-center w-full pointer-events-none">
-        <p className="text-slate-300 text-[9px] font-black uppercase tracking-[0.5em]">Developed by Fuad Naim Sohag</p>
-      </footer>
     </div>
   );
 };

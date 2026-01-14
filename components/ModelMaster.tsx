@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MobileModel } from '../types';
 import { Icons } from '../constants';
 
@@ -20,6 +20,7 @@ const ModelMaster: React.FC<Props> = ({ models, onAdd, onUpdate, onDelete }) => 
   });
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenEdit = (model: MobileModel) => {
     setFormData({
@@ -75,15 +76,103 @@ const ModelMaster: React.FC<Props> = ({ models, onAdd, onUpdate, onDelete }) => 
     }
   };
 
+  // --- Bulk Excel Import/Export Logic ---
+  
+  const downloadTemplate = () => {
+    const XLSX = (window as any).XLSX;
+    if (!XLSX) return alert("System library not loaded yet.");
+    
+    const templateData = [
+      { "Brand": "Apple", "Model Name": "iPhone 15 Pro", "Cost Price": 120000, "Sale Price": 135000 },
+      { "Brand": "Samsung", "Model Name": "Galaxy S24 Ultra", "Cost Price": 110000, "Sale Price": 125000 }
+    ];
+    
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Catalog_Template");
+    XLSX.writeFile(wb, "Mobil_Catalog_Template.xlsx");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const XLSX = (window as any).XLSX;
+    const reader = new FileReader();
+    
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        let addedCount = 0;
+        let skippedCount = 0;
+
+        data.forEach((row: any) => {
+          const brand = String(row['Brand'] || '').trim();
+          const modelName = String(row['Model Name'] || '').trim();
+          const purchasePrice = Number(row['Cost Price'] || 0);
+          const sellingPrice = Number(row['Sale Price'] || 0);
+
+          if (brand && modelName && purchasePrice > 0 && sellingPrice > 0) {
+            const exists = models.find(m => 
+              m.brand.toLowerCase() === brand.toLowerCase() && 
+              m.modelName.toLowerCase() === modelName.toLowerCase()
+            );
+
+            if (!exists) {
+              onAdd({
+                id: Math.random().toString(36).substr(2, 9),
+                brand,
+                modelName,
+                purchasePrice,
+                sellingPrice
+              });
+              addedCount++;
+            } else {
+              skippedCount++;
+            }
+          }
+        });
+
+        alert(`Import Finished!\nSuccessfully added: ${addedCount} models.\nSkipped (duplicates or invalid): ${skippedCount}`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) {
+        alert("Error parsing file. Please use the correct template.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Catalog</h2>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Manage your device portfolio</p>
         </div>
-        <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-full border border-slate-100">
-          {models.length} Models Registered
+        <div className="flex flex-wrap items-center gap-3">
+          <button 
+            onClick={downloadTemplate}
+            className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100 hover:bg-blue-100 transition-all flex items-center"
+          >
+            <svg className="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Download Template
+          </button>
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-4 py-2.5 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center"
+          >
+            <svg className="w-3.5 h-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            Upload Excel Data
+          </button>
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx, .xls, .csv" />
+          <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">
+            {models.length} Models
+          </div>
         </div>
       </div>
 

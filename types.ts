@@ -82,7 +82,7 @@ export interface Invoice {
   customerName: string;
   customerPhone: string;
   customerAddress?: string;
-  attention?: string;
+  narration?: string; // Replaced 'attention' and 'destination' with just narration
   items: InvoiceItem[];
   subtotal: number;
   discount: number;
@@ -91,7 +91,6 @@ export interface Invoice {
   payments: PaymentDetails[];
   paidAmount: number;
   dueAmount: number;
-  destination?: string;
 }
 
 export interface Purchase {
