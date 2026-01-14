@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppData, Invoice, InvoiceItem, PaymentMethod, StockStatus, PaymentDetails } from '../types';
 import { Icons } from '../constants';
@@ -41,7 +42,6 @@ const InvoiceCreator: React.FC<Props> = ({ data, onCreateInvoice, editingInvoice
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [txnId, setTxnId] = useState('');
   const [extraPymtInfo, setExtraPymtInfo] = useState('');
-  const [isConfirming, setIsConfirming] = useState(false);
   const [isImeiDropdownOpen, setIsImeiDropdownOpen] = useState(false);
   const imeiDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +99,14 @@ const InvoiceCreator: React.FC<Props> = ({ data, onCreateInvoice, editingInvoice
       const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || "N/A"), x, y, o);
 
       // --- HEADER ---
-      if (data.shop.logoUrl) doc.addImage(data.shop.logoUrl, 'PNG', MARGIN, 5, 20, 20);
+      if (data.shop.logoUrl) {
+        try {
+          // Removed imgType to allow jsPDF auto-detection and prevent "corrupt PNG" errors
+          doc.addImage(data.shop.logoUrl, MARGIN, 5, 20, 20);
+        } catch (e) {
+          console.error("Logo Error:", e);
+        }
+      }
       doc.setTextColor(0); doc.setFont(FONT, "bold").setFontSize(22);
       safeText(data.shop.name.toUpperCase(), PAGE_WIDTH / 2, 12, { align: 'center' });
       doc.setFontSize(9).setFont(FONT, "normal");
@@ -151,11 +158,11 @@ const InvoiceCreator: React.FC<Props> = ({ data, onCreateInvoice, editingInvoice
       addCustRow("Mobile", invoice.customerPhone);
       addCustRow("Narration", invoice.attention || '');
 
-      // --- TABLE REDESIGN ---
+      // --- TABLE ---
       const tableStartY = Math.max(currentY + 5, infoY + 10);
       const itData = invoice.items.map((it, i) => [
         i + 1, 
-        `${it.brand} ${it.modelName}\nS/N: ${it.imei}`, 
+        `${it.brand} ${it.modelName}\nS/N: ${it.imei}`,
         '1.00', 
         formatAmount(it.price)
       ]);
@@ -174,7 +181,6 @@ const InvoiceCreator: React.FC<Props> = ({ data, onCreateInvoice, editingInvoice
         }
       });
 
-      // --- FOOTER SUMMARY ---
       let fY = (doc as any).lastAutoTable.finalY;
       const sumW = 75, sumX = PAGE_WIDTH - MARGIN - sumW;
       
@@ -200,12 +206,10 @@ const InvoiceCreator: React.FC<Props> = ({ data, onCreateInvoice, editingInvoice
       const wordLines = doc.splitTextToSize(numberToWords(invoice.total), sumX - MARGIN - 10);
       doc.text(wordLines, MARGIN, fY + 27.5);
 
-      // --- SIGNATURES ---
       const sigY = PAGE_HEIGHT - 35;
       doc.line(MARGIN, sigY, MARGIN + 45, sigY); doc.line(PAGE_WIDTH - MARGIN - 45, sigY, PAGE_WIDTH - MARGIN, sigY);
       doc.setFontSize(9).setFont(FONT, "bold"); safeText("Customer Signature", MARGIN + 5, sigY + 5); safeText("Authorised Signature", PAGE_WIDTH - MARGIN - 40, sigY + 5);
 
-      // --- SYSTEM FOOTER ---
       const bottomLineY = PAGE_HEIGHT - 12;
       doc.setDrawColor(230);
       doc.line(MARGIN, bottomLineY, PAGE_WIDTH - MARGIN, bottomLineY);
@@ -218,194 +222,165 @@ const InvoiceCreator: React.FC<Props> = ({ data, onCreateInvoice, editingInvoice
     } catch (e) { console.error(e); }
   };
 
-  const handleAddIMEI = (targetImei?: string) => {
-    const imeiToUse = targetImei || imeiInput.trim();
-    if (!imeiToUse) return;
-    const stock = data.stocks.find(s => s.imei === imeiToUse);
-    if (!stock) return alert("IMEI not found!");
-    if (stock.status !== StockStatus.AVAILABLE && !editingInvoice?.items.some(i => i.imei === imeiToUse)) return alert("Sold!");
-    if (selectedItems.find(item => item.imei === imeiToUse)) return alert("In cart.");
-    const model = data.models.find(m => m.id === stock.modelId);
-    if (model) {
-      setSelectedItems([...selectedItems, { imei: stock.imei, modelName: model.modelName, brand: model.brand, price: stock.sellingPrice || model.sellingPrice }]);
-      setImeiInput('');
-      setIsImeiDropdownOpen(false);
-    }
-  };
-
-  const validateAndConfirm = () => {
-    if (!customer.name.trim() || !customer.phone.trim()) {
-      alert("Required: Customer Name and Mobile Number are mandatory.");
-      return;
-    }
-    if (selectedItems.length === 0) {
-      alert("Required: Add at least one item to the bill.");
-      return;
-    }
-    setIsConfirming(true);
-  };
-
-  const subtotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
+  const subtotal = selectedItems.reduce((sum, it) => sum + it.price, 0);
   const total = subtotal - discount;
-  const paid = paidAmount || 0;
+  const dueAmount = total - paidAmount;
+
+  const handleAddItem = (imei: string) => {
+    const stock = data.stocks.find(s => s.imei === imei && s.status === StockStatus.AVAILABLE);
+    if (!stock) {
+      alert("Invalid or Unavailable IMEI");
+      return;
+    }
+    const model = data.models.find(m => m.id === stock.modelId);
+    const newItem: InvoiceItem = {
+      imei: stock.imei,
+      modelName: model?.modelName || 'Unknown',
+      brand: model?.brand || 'Unknown',
+      price: stock.sellingPrice
+    };
+    setSelectedItems([...selectedItems, newItem]);
+    setImeiInput('');
+    setIsImeiDropdownOpen(false);
+  };
+
+  const handleCreate = () => {
+    if (!customer.name || !customer.phone || selectedItems.length === 0) {
+      alert("Fill customer details and add at least one item.");
+      return;
+    }
+
+    const payment: PaymentDetails = {
+      method: paymentMethod,
+      transactionId: txnId,
+      amount: paidAmount,
+      bankName: extraPymtInfo,
+      paymentPhone: extraPymtInfo
+    };
+
+    const invoice: Invoice = {
+      id: editingInvoice?.id || Math.random().toString(36).substr(2, 9),
+      invoiceNumber: editingInvoice?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
+      date: editingInvoice?.date || new Date().toISOString(),
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      customerAddress: customer.address,
+      attention: customer.narration,
+      items: selectedItems,
+      subtotal,
+      discount,
+      vat: 0,
+      total,
+      payments: [payment],
+      paidAmount,
+      dueAmount
+    };
+
+    onCreateInvoice(invoice);
+    generatePDF(invoice);
+  };
+
+  const filteredStock = data.stocks.filter(s => 
+    s.status === StockStatus.AVAILABLE && 
+    s.imei.toLowerCase().includes(imeiInput.toLowerCase()) &&
+    !selectedItems.some(item => item.imei === s.imei)
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">{editingInvoice ? 'Edit Bill' : 'New Bill'}</h2>
-        {editingInvoice && <button onClick={onCancelEdit} className="text-rose-500 font-black text-[10px] uppercase tracking-widest px-4 py-2 bg-rose-50 rounded-xl">Cancel Edit</button>}
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">{editingInvoice ? 'Modify Bill' : 'New Sale'}</h2>
+          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em] mt-2">Retail Point of Sale</p>
+        </div>
+        {editingInvoice && <button onClick={onCancelEdit} className="text-rose-500 font-black text-[10px] uppercase tracking-widest bg-rose-50 px-6 py-3 rounded-xl border border-rose-100 hover:bg-rose-100">Cancel Modification</button>}
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm relative overflow-hidden">
-            {data.shop.logoUrl && <img src={data.shop.logoUrl} className="absolute top-8 left-8 w-20 h-20 opacity-50 pointer-events-none object-contain" alt="Branding" />}
-            <div className="relative z-10">
-              <h3 className="text-lg font-black mb-6 uppercase flex items-center ml-24"><span className="w-1.5 h-6 bg-blue-600 mr-3 rounded-full"></span>Buyer Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ml-24">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Mobile Number *</label>
-                  <input type="tel" placeholder="01XXXXXXXXX" className="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-500 transition-all" value={customer.phone} onChange={e => handlePhoneChange(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Customer Name *</label>
-                  <input type="text" placeholder="Full Name" className="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-500 transition-all" value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Customer Address (Optional)</label>
-                  <textarea placeholder="N/A" className="w-full px-5 py-3 bg-slate-50 border rounded-2xl outline-none font-bold" rows={1} value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Narration (Optional)</label>
-                  <input type="text" placeholder="N/A" className="w-full px-5 py-3 bg-slate-50 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-blue-500 transition-all" value={customer.narration} onChange={e => setCustomer({...customer, narration: e.target.value})} />
-                </div>
-              </div>
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-900 mb-6 flex items-center"><span className="w-1.5 h-4 bg-slate-900 rounded-full mr-3"></span>Customer Identity</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input type="tel" placeholder="Mobile Number *" className="px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 rounded-2xl outline-none font-bold text-[11px] transition-all" value={customer.phone} onChange={e => handlePhoneChange(e.target.value)} />
+              <input type="text" placeholder="Full Name *" className="px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 rounded-2xl outline-none font-bold text-[11px] transition-all" value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})} />
+              <input type="text" placeholder="Full Address" className="px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 rounded-2xl outline-none font-bold text-[11px] transition-all md:col-span-2" value={customer.address} onChange={e => setCustomer({...customer, address: e.target.value})} />
+              <input type="text" placeholder="Internal Narration / Attention" className="px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-slate-900 rounded-2xl outline-none font-bold text-[11px] transition-all md:col-span-2" value={customer.narration} onChange={e => setCustomer({...customer, narration: e.target.value})} />
             </div>
           </div>
-          
-          <div className="bg-white p-8 rounded-[2.5rem] border shadow-sm">
-             <h3 className="text-lg font-black mb-6 uppercase flex items-center"><span className="w-1.5 h-6 bg-blue-600 mr-3 rounded-full"></span>Item Entry</h3>
-             <div className="flex space-x-3 mb-8 relative" ref={imeiDropdownRef}>
-              <div className="flex-1 relative">
-                <input type="text" placeholder="Scan or Search IMEI..." className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold text-sm" value={imeiInput} onChange={e => { setImeiInput(e.target.value); setIsImeiDropdownOpen(true); }} onFocus={() => setIsImeiDropdownOpen(true)} onKeyDown={e => e.key === 'Enter' && handleAddIMEI()} />
-                {isImeiDropdownOpen && (
-                  <div className="absolute z-[60] left-0 right-0 top-full mt-2 bg-white border shadow-2xl rounded-2xl max-h-60 overflow-y-auto">
-                    {data.stocks.filter(s => s.status === StockStatus.AVAILABLE && s.imei.includes(imeiInput)).map(s => (
-                      <button key={s.imei} type="button" className="w-full text-left px-5 py-3 hover:bg-slate-50 transition-colors flex flex-col" onMouseDown={() => handleAddIMEI(s.imei)}>
-                        <span className="font-black text-slate-900 text-xs">{s.imei}</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">{data.models.find(m => m.id === s.modelId)?.brand} {data.models.find(m => m.id === s.modelId)?.modelName}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button onClick={() => handleAddIMEI()} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 transition-all">Add Item</button>
+
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-900 mb-6 flex items-center"><span className="w-1.5 h-4 bg-slate-900 rounded-full mr-3"></span>Cart Items</h3>
+            <div className="relative mb-6" ref={imeiDropdownRef}>
+               <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100 focus-within:ring-2 ring-slate-200 transition-all">
+                  <div className="px-4 text-slate-300 flex items-center"><Icons.Search /></div>
+                  <input type="text" placeholder="SCAN OR TYPE IMEI TO ADD..." className="bg-transparent py-4 outline-none font-black text-slate-900 text-[10px] uppercase tracking-widest w-full" value={imeiInput} onChange={e => { setImeiInput(e.target.value); setIsImeiDropdownOpen(true); }} onFocus={() => setIsImeiDropdownOpen(true)} />
+               </div>
+               {isImeiDropdownOpen && filteredStock.length > 0 && (
+                 <div className="absolute z-[100] left-0 right-0 top-full mt-2 bg-white border border-slate-100 shadow-2xl rounded-2xl max-h-60 overflow-y-auto">
+                    {filteredStock.map(s => {
+                      const model = data.models.find(m => m.id === s.modelId);
+                      return (
+                        <button key={s.imei} onClick={() => handleAddItem(s.imei)} className="w-full text-left px-6 py-4 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex justify-between items-center group">
+                          <div>
+                            <p className="font-black text-slate-900 text-[10px] uppercase">{model?.brand} {model?.modelName}</p>
+                            <p className="font-mono text-[9px] text-slate-400">{s.imei}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-black text-slate-900 text-[10px]">{s.sellingPrice.toLocaleString()}</p>
+                            <p className="text-[8px] font-bold text-slate-300 uppercase">Available</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                 </div>
+               )}
             </div>
-            <table className="w-full text-left">
-              <thead><tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest"><th className="p-4">Description</th><th className="p-4 text-right">Price</th><th className="p-4"></th></tr></thead>
-              <tbody className="divide-y divide-slate-50">
-                {selectedItems.length === 0 ? (
-                  <tr><td colSpan={3} className="p-10 text-center text-slate-300 font-black uppercase tracking-widest text-[10px]">Your cart is empty</td></tr>
-                ) : (
-                  selectedItems.map(item => (
-                    <tr key={item.imei}><td className="p-4"><p className="font-black text-slate-900 uppercase text-xs">{item.brand} {item.modelName}</p><p className="text-[10px] text-slate-400">IMEI: {item.imei}</p></td><td className="p-4 text-right font-black">{item.price.toLocaleString()}</td><td className="p-4 text-center"><button onClick={() => setSelectedItems(selectedItems.filter(i => i.imei !== item.imei))} className="text-rose-500 p-2"><Icons.Trash /></button></td></tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[10px]">
+                <thead className="bg-slate-50/50 border-b border-slate-100 text-slate-400 font-black uppercase tracking-widest">
+                  <tr><th className="px-6 py-4">Item Details</th><th className="px-6 py-4">Serial (IMEI)</th><th className="px-6 py-4 text-right">Price</th><th className="px-6 py-4 text-center"></th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {selectedItems.length === 0 ? (
+                    <tr><td colSpan={4} className="px-6 py-12 text-center text-slate-300 font-black uppercase tracking-widest">Cart is empty. Track IMEI above.</td></tr>
+                  ) : (
+                    selectedItems.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50 transition-all">
+                        <td className="px-6 py-4"><p className="font-black text-slate-900 uppercase">{item.brand} {item.modelName}</p></td>
+                        <td className="px-6 py-4 font-mono text-slate-500 uppercase">{item.imei}</td>
+                        <td className="px-6 py-4 text-right font-black">{item.price.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-center"><button onClick={() => setSelectedItems(selectedItems.filter((_, i) => i !== idx))} className="text-rose-500 hover:scale-125 transition-transform"><Icons.Trash /></button></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <div className="bg-slate-900 p-8 rounded-[3rem] shadow-2xl text-white h-fit space-y-6">
-          <h3 className="text-lg font-black text-blue-400 uppercase">Settlement</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center"><span className="text-slate-400 font-bold text-[10px] uppercase">Discount</span><input type="number" className="w-24 p-2 bg-slate-800 rounded-xl text-right font-black text-white outline-none" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} /></div>
-            <div className="pt-6 border-t border-slate-800 flex justify-between items-end"><span className="text-[10px] font-black text-slate-400 uppercase">Final Total</span><span className="text-3xl font-black">{total.toLocaleString()}</span></div>
-            <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Paid Amount</label>
-              <input type="number" className="w-full p-4 bg-blue-600 rounded-2xl text-2xl font-black text-center outline-none ring-offset-2 focus:ring-4 ring-blue-500/50" value={paidAmount || ''} onChange={e => setPaidAmount(Number(e.target.value))} />
-            </div>
-            <div className="mt-4 space-y-3">
-              <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Method</label>
-              <select className="w-full p-3 bg-slate-800 rounded-xl text-xs font-bold uppercase outline-none" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}>
-                {Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            
-            {paymentMethod !== PaymentMethod.CASH && (
-              <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div>
-                  <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Transaction ID / Mobile No</label>
-                  <input type="text" className="w-full p-3 bg-slate-800 rounded-xl text-xs font-bold outline-none border border-slate-700" value={txnId} onChange={e => setTxnId(e.target.value)} placeholder="TrxID or Number" />
-                </div>
-                {paymentMethod === PaymentMethod.CARD ? (
-                  <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Bank Name</label>
-                    <input type="text" className="w-full p-3 bg-slate-800 rounded-xl text-xs font-bold outline-none border border-slate-700" value={extraPymtInfo} onChange={e => setExtraPymtInfo(e.target.value)} placeholder="e.g. City Bank" />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-[9px] font-black text-slate-500 uppercase block mb-1">Mobile Number (Sender)</label>
-                    <input type="text" className="w-full p-3 bg-slate-800 rounded-xl text-xs font-bold outline-none border border-slate-700" value={extraPymtInfo} onChange={e => setExtraPymtInfo(e.target.value)} placeholder="01XXXXXXXXX" />
+        <div className="bg-slate-900 p-8 rounded-[3rem] shadow-2xl text-white h-fit sticky top-6 space-y-8 border border-slate-800">
+           <div className="space-y-1"><h3 className="text-lg font-black tracking-tighter uppercase leading-tight">Checkout</h3><p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.2em]">Transaction Ledger</p></div>
+           <div className="space-y-4">
+              <div className="flex justify-between items-center text-[11px] font-black uppercase text-slate-400"><span>Subtotal</span><span className="text-white">{subtotal.toLocaleString()}</span></div>
+              <div className="flex justify-between items-center text-[11px] font-black uppercase"><span className="text-slate-400">Discount (-)</span><input type="number" className="bg-slate-800 border-none outline-none p-2 rounded-xl text-right font-black text-white w-24 text-[11px]" value={discount || ''} onChange={e => setDiscount(Number(e.target.value))} /></div>
+              <div className="pt-6 border-t border-slate-800 flex justify-between items-end"><div><p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Net Payable</p><p className="text-4xl font-black text-white tracking-tighter">{total.toLocaleString()}</p></div></div>
+              <div className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-4 mt-8">
+                <div><label className="text-[9px] font-black text-slate-500 uppercase block mb-2 tracking-widest">Payment Method</label><select className="w-full bg-slate-800 text-white p-3 rounded-xl font-bold text-xs outline-none" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}>{Object.values(PaymentMethod).map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                {paymentMethod !== PaymentMethod.CASH && (
+                  <div className="space-y-3">
+                    <input type="text" placeholder={paymentMethod === PaymentMethod.CARD ? "Bank Name" : "Payment Phone"} className="w-full bg-slate-800 text-white p-3 rounded-xl font-bold text-xs outline-none" value={extraPymtInfo} onChange={e => setExtraPymtInfo(e.target.value)} />
+                    <input type="text" placeholder="Transaction ID" className="w-full bg-slate-800 text-white p-3 rounded-xl font-bold text-xs outline-none" value={txnId} onChange={e => setTxnId(e.target.value)} />
                   </div>
                 )}
+                <div><label className="text-[9px] font-black text-emerald-400 uppercase block mb-2 tracking-widest">Cash Received</label><input type="number" placeholder="0" className="w-full bg-transparent border-b-2 border-emerald-500 font-black text-2xl outline-none p-0 pb-1 text-white" value={paidAmount || ''} onChange={e => setPaidAmount(Number(e.target.value))} /></div>
+                <div className="flex justify-between items-center"><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Customer Due</p><p className={`text-sm font-black uppercase ${dueAmount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{dueAmount > 0 ? `BDT ${dueAmount.toLocaleString()}` : 'SETTLED'}</p></div>
               </div>
-            )}
-            
-            <button onClick={validateAndConfirm} className="mt-8 w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-[2rem] uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all">Verify & Print</button>
-          </div>
+           </div>
+           <button disabled={selectedItems.length === 0} onClick={handleCreate} className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl hover:bg-blue-500 transition-all active:scale-[0.97] disabled:opacity-20">{editingInvoice ? 'UPDATE & PRINT' : 'FINALIZE & PRINT'}</button>
         </div>
       </div>
-
-      {isConfirming && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] max-w-md w-full p-10 shadow-2xl animate-in zoom-in duration-200 text-center">
-            <h3 className="text-2xl font-black text-slate-900 uppercase mb-8">Confirm Sale</h3>
-            <div className="space-y-4 mb-10 text-left">
-              <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-slate-400 font-bold text-xs uppercase">Payable</span><span className="font-black text-slate-900">{total.toLocaleString()}</span></div>
-              <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-slate-400 font-bold text-xs uppercase">Received</span><span className="font-black text-emerald-600">{paid.toLocaleString()}</span></div>
-              <div className="flex justify-between py-2 border-b border-slate-100"><span className="text-slate-400 font-bold text-xs uppercase">Balance Due</span><span className="font-black text-rose-600">{(total - paid).toLocaleString()}</span></div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setIsConfirming(false)} className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black uppercase text-xs">Cancel</button>
-              <button onClick={() => { 
-                const shopInitials = data.shop.name.split(' ').map(w => w[0]).join('').toUpperCase() || 'M';
-                const payment: PaymentDetails = { 
-                  method: paymentMethod, 
-                  transactionId: txnId || ('TXN'+Date.now()), 
-                  amount: paid 
-                };
-                if (paymentMethod === PaymentMethod.CARD) {
-                  payment.bankName = extraPymtInfo;
-                } else if (paymentMethod !== PaymentMethod.CASH) {
-                  payment.paymentPhone = extraPymtInfo;
-                }
-
-                const invoice: Invoice = {
-                  id: editingInvoice?.id || Math.random().toString(36).substr(2, 9),
-                  invoiceNumber: editingInvoice?.invoiceNumber || `${shopInitials}${Date.now().toString().slice(-8)}`,
-                  date: new Date().toISOString(),
-                  customerName: customer.name, 
-                  customerPhone: customer.phone, 
-                  customerAddress: customer.address || '', 
-                  attention: customer.narration || '',
-                  items: selectedItems, 
-                  subtotal, 
-                  discount, 
-                  vat: 0, 
-                  total, 
-                  payments: [payment], 
-                  paidAmount: paid, 
-                  dueAmount: total - paid
-                };
-                
-                onCreateInvoice(invoice);
-                generatePDF(invoice);
-                setIsConfirming(false);
-              }} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-xl">Complete</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

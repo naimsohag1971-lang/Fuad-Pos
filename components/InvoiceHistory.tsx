@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppData, Invoice, PaymentMethod } from '../types';
 import { Icons } from '../constants';
@@ -63,7 +64,13 @@ const InvoiceHistory: React.FC<Props> = ({ data, initialInvoiceId, onClearInitia
       const safeText = (text: any, x: number, y: number, o?: any) => doc.text(String(text || "N/A"), x, y, o);
 
       // --- HEADER ---
-      if (data.shop.logoUrl) doc.addImage(data.shop.logoUrl, 'PNG', MARGIN, 5, 20, 20);
+      if (data.shop.logoUrl) {
+        try {
+          doc.addImage(data.shop.logoUrl, MARGIN, 5, 20, 20);
+        } catch (e) {
+          console.error("Logo Error:", e);
+        }
+      }
       doc.setTextColor(0); doc.setFont(FONT, "bold").setFontSize(22);
       safeText(data.shop.name.toUpperCase(), PAGE_WIDTH / 2, 12, { align: 'center' });
       doc.setFontSize(9).setFont(FONT, "normal");
@@ -199,7 +206,8 @@ const InvoiceHistory: React.FC<Props> = ({ data, initialInvoiceId, onClearInitia
           </button>
           <div className="flex space-x-2">
             <button onClick={() => onEditInvoice(selectedInvoice)} className="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Edit</button>
-            <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Print (A4)</button>
+            <button onClick={() => generatePDF(selectedInvoice)} className="bg-slate-900 text-white px-5 py-2 rounded-lg font-bold text-sm shadow-sm transition-all">Print (PDF)</button>
+            <button onClick={() => window.print()} className="bg-slate-100 text-slate-900 px-5 py-2 rounded-lg font-bold text-sm transition-all">Print (A4 Browser)</button>
             <button onClick={() => setDeleteConfirmId(selectedInvoice.id)} className="bg-rose-50 text-rose-600 px-5 py-2 rounded-lg font-bold text-sm transition-all">Delete</button>
           </div>
         </div>
