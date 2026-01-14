@@ -213,20 +213,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-white">
-      {/* Persistent Floating Toggle Button - The ONLY thing visible when sidebar is hidden */}
-      <button 
-        onClick={() => setIsSidebarCollapsed(false)}
-        className={`fixed top-6 left-6 z-[120] no-print p-3.5 rounded-2xl bg-slate-900 text-white shadow-2xl hover:scale-110 active:scale-95 transition-all duration-500 ease-out ${
-          !isSidebarCollapsed ? 'opacity-0 pointer-events-none -translate-x-12' : 'opacity-100 translate-x-0'
-        }`}
-        title="Show Sidebar"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
-        </svg>
-      </button>
-
-      {/* Sidebar Overlay for Mobile */}
+      {/* Sidebar Overlay for Mobile only when collapsed isn't true mini */}
       {!isSidebarCollapsed && (
         <div 
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] md:hidden no-print transition-all duration-300"
@@ -236,28 +223,29 @@ const App: React.FC = () => {
 
       <aside 
         className={`bg-white border-r border-slate-100 flex flex-col no-print fixed md:sticky top-0 h-screen z-[100] transition-all duration-500 ease-in-out ${
-          isSidebarCollapsed ? '-translate-x-full w-0 invisible opacity-0 overflow-hidden' : 'translate-x-0 w-[300px] visible opacity-100'
+          isSidebarCollapsed ? 'w-[88px]' : 'w-[300px]'
         }`}
       >
-        <div className="p-8 pb-8 flex-1 overflow-y-auto no-scrollbar">
-          <div className="flex items-center justify-between mb-12">
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Smart POS</h1>
-              <p className="text-[7px] font-black uppercase text-slate-400 tracking-[0.4em] mt-1.5">Enterprise Suite</p>
-            </div>
+        <div className={`p-6 flex-1 overflow-y-auto no-scrollbar flex flex-col ${isSidebarCollapsed ? 'items-center' : ''}`}>
+          <div className={`flex items-center justify-between mb-12 w-full ${isSidebarCollapsed ? 'flex-col space-y-4' : ''}`}>
+            {!isSidebarCollapsed && (
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Smart POS</h1>
+                <p className="text-[7px] font-black uppercase text-slate-400 tracking-[0.4em] mt-1.5">Enterprise Suite</p>
+              </div>
+            )}
             
-            {/* Collapse Button inside Sidebar */}
             <button 
-              onClick={() => setIsSidebarCollapsed(true)}
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-all"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 transition-transform duration-500 ${isSidebarCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
               </svg>
             </button>
           </div>
           
-          <nav className="space-y-2">
+          <nav className="space-y-3 w-full">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -265,33 +253,68 @@ const App: React.FC = () => {
                   setActiveTab(item.id as any); 
                   setEditingInvoice(null); 
                   if(item.id === 'stock') setInventorySubTab('available'); 
-                  if(window.innerWidth < 768) setIsSidebarCollapsed(true); 
                 }}
-                className={`w-full flex items-center space-x-4 px-5 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                  activeTab === item.id ? 'bg-slate-900 text-white shadow-lg translate-x-1' : 'text-slate-400 hover:text-slate-900'
+                className={`group relative w-full flex items-center rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  isSidebarCollapsed ? 'justify-center p-3.5' : 'px-5 py-3.5 space-x-4'
+                } ${
+                  activeTab === item.id ? 'bg-slate-900 text-white shadow-lg translate-x-1' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
-                <div className="scale-90"><item.icon /></div>
-                <span>{item.label}</span>
+                <div className="scale-90 flex-shrink-0"><item.icon /></div>
+                {!isSidebarCollapsed && <span>{item.label}</span>}
+                
+                {/* SMART TOOLTIP FOR COLLAPSED STATE */}
+                {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-4 px-4 py-2 bg-slate-900 text-white text-[9px] font-black rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-[110] shadow-xl border border-slate-800">
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
+                    {item.label}
+                  </div>
+                )}
               </button>
             ))}
           </nav>
-        </div>
 
-        <div className="p-6 pt-0 mt-auto">
-          <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex items-center gap-2">
-            <button 
-              onClick={() => { setActiveTab('settings'); setEditingInvoice(null); if(window.innerWidth < 768) setIsSidebarCollapsed(true); }} 
-              className={`flex-1 py-3 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'}`}
-            >
-              Settings
-            </button>
-            <button 
-              onClick={handleLogout} 
-              className="flex-1 bg-white border border-slate-100 text-rose-500 font-black text-[8px] uppercase tracking-widest py-3 rounded-xl shadow-sm hover:bg-rose-50 transition-all"
-            >
-              Logout
-            </button>
+          {/* Settings at the bottom of the main list */}
+          <div className={`mt-auto pt-6 border-t border-slate-50 w-full space-y-3 ${isSidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
+             <button
+                onClick={() => { setActiveTab('settings'); setEditingInvoice(null); }}
+                className={`group relative w-full flex items-center rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                  isSidebarCollapsed ? 'justify-center p-3.5' : 'px-5 py-3.5 space-x-4'
+                } ${
+                  activeTab === 'settings' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <div className="scale-90 flex-shrink-0"><Icons.Settings /></div>
+                {!isSidebarCollapsed && <span>Settings</span>}
+                
+                {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-4 px-4 py-2 bg-slate-900 text-white text-[9px] font-black rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-[110] shadow-xl border border-slate-800">
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-900 rotate-45"></div>
+                    Settings
+                  </div>
+                )}
+              </button>
+
+              <button 
+                onClick={handleLogout} 
+                className={`group relative w-full flex items-center rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-transparent ${
+                  isSidebarCollapsed ? 'justify-center p-3.5 text-rose-500 hover:bg-rose-50' : 'px-5 py-3.5 space-x-4 bg-slate-50 text-rose-500 hover:bg-rose-100'
+                }`}
+              >
+                <div className="scale-90 flex-shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </div>
+                {!isSidebarCollapsed && <span>Logout</span>}
+
+                {isSidebarCollapsed && (
+                  <div className="absolute left-full ml-4 px-4 py-2 bg-rose-600 text-white text-[9px] font-black rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap z-[110] shadow-xl">
+                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-rose-600 rotate-45"></div>
+                    Log Out
+                  </div>
+                )}
+              </button>
           </div>
         </div>
       </aside>
